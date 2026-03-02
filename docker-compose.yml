@@ -1,0 +1,24 @@
+services:
+  deutschtutor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BASE_PATH: ${NEXT_PUBLIC_BASE_PATH:-/tutor}
+    container_name: deutschtutor
+    environment:
+      - NODE_ENV=production
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH:-/tutor}
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "127.0.0.1:8091:3000"
+    networks:
+      - perguntas_default
+    restart: unless-stopped
+
+networks:
+  perguntas_default:
+    external: true
+    name: perguntas_default
