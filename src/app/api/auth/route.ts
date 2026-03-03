@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateUser, setSessionCookie, clearSessionCookie, getSessionUser } from "@/lib/auth";
+import { setSessionCookie, clearSessionCookie, getSessionUser } from "@/lib/auth";
+import { authenticateUser } from "@/lib/auth.server";
 
 export async function POST(request: NextRequest) {
   let body: Record<string, unknown>;
