@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
           content: "Crie 5 exercícios variados de vocabulário focados em produção ativa, com um word web.",
         },
       ],
-      maxTokens: 2500,
+      maxTokens: 3500,
     });
 
     const raw = safeParseJSON<Record<string, unknown>>(text);

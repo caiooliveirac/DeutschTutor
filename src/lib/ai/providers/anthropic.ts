@@ -17,7 +17,7 @@ export class AnthropicProvider implements AIProvider {
     this.tier = tier;
     this.client = new Anthropic({
       apiKey,
-      timeout: 60_000,
+      timeout: 120_000,
       maxRetries: 1,
     });
   }

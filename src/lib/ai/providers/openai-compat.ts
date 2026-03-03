@@ -34,7 +34,7 @@ export class OpenAICompatProvider implements AIProvider {
     this.client = new OpenAI({
       apiKey: opts.apiKey,
       baseURL: opts.baseURL,
-      timeout: opts.timeout ?? 60_000,
+      timeout: opts.timeout ?? 120_000,
       maxRetries: 2,
     });
   }
@@ -98,6 +98,6 @@ export function createDeepSeekProvider(model: string, name: string, tier: Provid
     tier,
     apiKey,
     baseURL: "https://api.deepseek.com",
-    timeout: 120_000, // R1 reasoning model needs more time
+    timeout: 240_000, // R1 reasoning model needs more time
   });
 }

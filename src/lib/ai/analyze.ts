@@ -34,7 +34,7 @@ export async function analyzeMessage(
           content: `Analise esta mensagem do aluno: "${userMessage}"${contextSummary}`,
         },
       ],
-      maxTokens: 3000,
+      maxTokens: 4500,
     });
 
     const raw = safeParseJSON<Record<string, unknown>>(text);

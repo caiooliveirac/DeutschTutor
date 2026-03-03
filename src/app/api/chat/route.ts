@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const text = await provider.chat({
       systemPrompt,
       messages: cappedMessages,
-      maxTokens: 1000,
+      maxTokens: 1500,
     });
 
     const raw = safeParseJSON<Record<string, unknown>>(text);

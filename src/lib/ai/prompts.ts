@@ -32,12 +32,12 @@ export interface SchreibenTask {
 //  Every prompt ends with exact JSON schema. "Respond ONLY as valid JSON" is critical.
 //
 //  TIER CONFIG (update client.ts too):
-//    FAST  → Chat(1000), Vocab(1500), Analyze(2000)
-//    QUALITY → Schreiben(4000), Grammatik(4000)
+//    FAST  → Chat(1500), Vocab(3500), Analyze(4500)
+//    QUALITY → Schreiben(6000), Grammatik(6000)
 // ════════════════════════════════════════════════════════════════════════════════
 
 
-// ── Conversation (FAST · max_tokens: 1000) ──
+// ── Conversation (FAST · max_tokens: 1500) ──
 export function getConversationPrompt(scenario: Scenario, level: string): string {
   return `Du bist ein freundlicher Gesprächspartner für einen brasilianischen Arzt auf ${level}-Niveau.
 
@@ -54,7 +54,7 @@ Antworte NUR als JSON (kein Markdown):
 {"response":"Antwort auf Deutsch","translation":"Tradução PT-BR","keyVocab":[{"de":"Wort","pt":"tradução","example":"Beispiel"}],"grammarNote":"Nota gramatical em PT-BR"}`;
 }
 
-// ── Vocabulary Trainer (FAST · max_tokens: 1500) ──
+// ── Vocabulary Trainer (FAST · max_tokens: 3500) ──
 export function getVocabPrompt(recentWords: string[], errorPatterns: string[], level: string): string {
   return `Treinador de vocabulário alemão nível ${level} para médico brasileiro. Objetivo: converter conhecimento PASSIVO em PRODUÇÃO ATIVA.
 
@@ -74,7 +74,7 @@ Responda APENAS em JSON (sem markdown):
 }
 
 
-// ── Message Analyzer (FAST · max_tokens: 2000) ──
+// ── Message Analyzer (FAST · max_tokens: 4500) ──
 export function getAnalysisPrompt(level: string): string {
   return `Linguista de L2 (PT-BR → alemão). Analise a produção de um médico brasileiro nível ${level}.
 
@@ -94,7 +94,7 @@ Responda APENAS em JSON (sem markdown):
 }
 
 
-// ── Schreiben Evaluator (QUALITY · max_tokens: 4000) ──
+// ── Schreiben Evaluator (QUALITY · max_tokens: 6000) ──
 export function getSchreibenPrompt(level: string): string {
   return `Examinador Goethe-Institut para Schreiben Teil 1, nível ${level}. Aluno: médico brasileiro.
 
@@ -118,7 +118,7 @@ Responda APENAS em JSON (sem markdown):
 }
 
 
-// ── Grammar Lesson Generator (QUALITY · max_tokens: 4000) ──
+// ── Grammar Lesson Generator (QUALITY · max_tokens: 6000) ──
 export function getGrammatikPrompt(topic: GrammarTopic, level: string): string {
   return `Professor de gramática alemã para falante de PT-BR nível ${level}. Aluno: médico.
 
