@@ -120,7 +120,7 @@ fetch("/api/stats")
 
 ### 3. `auth.ts` vs `auth.server.ts` — Edge Runtime
 
-O middleware do Next.js roda em **Edge Runtime**, que **não suporta** Node.js `crypto`.
+O proxy (antigo middleware) do Next.js roda em **Edge Runtime**, que **não suporta** Node.js `crypto`.
 
 A autenticação está separada em dois arquivos:
 
@@ -130,10 +130,10 @@ A autenticação está separada em dois arquivos:
 | `src/lib/auth.server.ts` | Node-only | `crypto.scrypt()`, `hashPassword()`, `verifyPassword()`, `authenticateUser()` |
 
 **Regras:**
-- O `middleware.ts` importa **apenas** de `auth.ts`
+- O `proxy.ts` importa **apenas** de `auth.ts`
 - API routes importam de `auth.ts` (cookies/JWT) **e** `auth.server.ts` (password)
 - **Nunca** importe `crypto`, `fs`, `path`, `child_process` ou qualquer módulo Node.js em `auth.ts`
-- **Nunca** importe `auth.server.ts` em qualquer arquivo que possa ser incluído no middleware bundle
+- **Nunca** importe `auth.server.ts` em qualquer arquivo que possa ser incluído no proxy bundle
 
 Se violar isso, o `next build` falha com:
 ```
@@ -271,7 +271,7 @@ client.ts         → callAI() — orquestra a chamada com retry
 
 | Camada | Responsabilidade | Edge-safe? |
 |--------|------------------|------------|
-| `middleware.ts` | Auth guard (JWT verify) | ✅ Sim |
+| `proxy.ts` | Auth guard (JWT verify) | ✅ Sim |
 | `src/lib/auth.ts` | JWT + cookies | ✅ Sim |
 | `src/lib/auth.server.ts` | Password hashing (crypto) | ❌ Node-only |
 | `src/lib/db/` | SQLite (better-sqlite3) | ❌ Node-only |
@@ -459,7 +459,7 @@ pnpm db:studio    # UI visual do Drizzle
 - [ ] `pnpm lint` → zero erros e zero warnings
 - [ ] `pnpm exec tsc --noEmit` → zero erros
 - [ ] Todo `fetch("/api/...")` usa `apiUrl()`
-- [ ] Nenhum import de módulo Node.js em `auth.ts` ou qualquer arquivo importado pelo middleware
+- [ ] Nenhum import de módulo Node.js em `auth.ts` ou qualquer arquivo importado pelo proxy
 - [ ] Novas env vars usam inicialização lazy (não `throw` no top-level)
 - [ ] `data/` existe (para build local funcionar)
 - [ ] Se adicionou dependência nativa → adicionou em `serverExternalPackages`
@@ -605,7 +605,7 @@ NUNCA defina NEXT_PUBLIC_BASE_PATH no .env local. Deve ficar vazio/ausente.
 ### Nunca fazer:
 - NÃO defina NEXT_PUBLIC_BASE_PATH no .env local (dev usa /, produção usa /tutor)
 - NÃO importe módulos Node.js (crypto, fs, path) em src/lib/auth.ts — é Edge Runtime
-- NÃO importe src/lib/auth.server.ts em arquivos que o middleware possa incluir
+- NÃO importe src/lib/auth.server.ts em arquivos que o proxy possa incluir
 - NÃO faça fetch("/api/...") sem usar apiUrl() — quebra em produção
 - NÃO use interfaces vazias (use type alias)
 - NÃO deixe imports não usados — o CI falha
@@ -622,7 +622,7 @@ NUNCA defina NEXT_PUBLIC_BASE_PATH no .env local. Deve ficar vazio/ausente.
 - SEMPRE separe lógica Edge-safe (auth.ts) de Node-only (auth.server.ts)
 
 ### Separação Edge vs Node:
-- auth.ts → JWT (jose), cookies, verifyRequestToken → PODE ser importado no middleware
+- auth.ts → JWT (jose), cookies, verifyRequestToken → PODE ser importado no proxy
 - auth.server.ts → crypto.scrypt, hashPassword, authenticateUser → SÓ em API routes
 - db/index.ts → better-sqlite3 → SÓ em API routes (server-side)
 
