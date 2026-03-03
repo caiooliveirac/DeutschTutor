@@ -7,8 +7,11 @@ interface ProviderInfo {
   id: string;
   name: string;
   tier: string;
+  description: string;
   qualityModel: string;
+  qualityLabel: string;
   fastModel: string;
+  fastLabel: string;
 }
 
 interface ProviderContextValue {

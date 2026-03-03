@@ -12,6 +12,7 @@ export class OpenAICompatProvider implements AIProvider {
   readonly tier: ProviderTier;
   readonly model: string;
   private client: OpenAI;
+  private useMaxCompletionTokens: boolean;
 
   constructor(opts: {
     id: string;
@@ -20,23 +21,32 @@ export class OpenAICompatProvider implements AIProvider {
     tier: ProviderTier;
     apiKey: string;
     baseURL?: string;
+    /** GPT-5.x and newer use max_completion_tokens instead of max_tokens */
+    useMaxCompletionTokens?: boolean;
+    /** Timeout in ms (default: 60s) */
+    timeout?: number;
   }) {
     this.id = opts.id;
     this.model = opts.model;
     this.name = opts.name;
     this.tier = opts.tier;
+    this.useMaxCompletionTokens = opts.useMaxCompletionTokens ?? false;
     this.client = new OpenAI({
       apiKey: opts.apiKey,
       baseURL: opts.baseURL,
-      timeout: 30_000,
+      timeout: opts.timeout ?? 60_000,
       maxRetries: 2,
     });
   }
 
   async chat(params: ChatParams): Promise<string> {
+    const tokenParam = this.useMaxCompletionTokens
+      ? { max_completion_tokens: params.maxTokens }
+      : { max_tokens: params.maxTokens };
+
     const response = await this.client.chat.completions.create({
       model: this.model,
-      max_tokens: params.maxTokens,
+      ...tokenParam,
       messages: [
         { role: "system" as const, content: params.systemPrompt },
         ...params.messages.map((m) => ({
@@ -55,7 +65,7 @@ export class OpenAICompatProvider implements AIProvider {
 export function createOpenAIProvider(model: string, name: string, tier: ProviderTier): AIProvider {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY env var is required");
-  return new OpenAICompatProvider({ id: "openai", model, name, tier, apiKey });
+  return new OpenAICompatProvider({ id: "openai", model, name, tier, apiKey, useMaxCompletionTokens: true });
 }
 
 export function createXAIProvider(model: string, name: string, tier: ProviderTier): AIProvider {
@@ -81,5 +91,6 @@ export function createDeepSeekProvider(model: string, name: string, tier: Provid
     tier,
     apiKey,
     baseURL: "https://api.deepseek.com",
+    timeout: 120_000, // R1 reasoning model needs more time
   });
 }

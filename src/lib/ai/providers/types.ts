@@ -38,10 +38,16 @@ export interface ProviderConfig {
   id: string;
   name: string;
   tier: ProviderTier;
+  /** Short description for UI tooltip */
+  description: string;
   /** The model used for quality endpoints (schreiben, grammatik) */
   qualityModel: string;
+  /** Human-friendly label for the quality model */
+  qualityLabel: string;
   /** The model used for fast endpoints (chat, analyze, vocab) */
   fastModel: string;
+  /** Human-friendly label for the fast model */
+  fastLabel: string;
   /** The env var that holds the API key */
   envVar: string;
   /** Factory function */
