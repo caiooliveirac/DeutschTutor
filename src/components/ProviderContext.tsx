@@ -41,21 +41,26 @@ export function ProviderProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetch(apiUrl("/api/providers"))
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data: { providers: ProviderInfo[]; default: string }) => {
-        setProviders(data.providers);
+        const list = data.providers ?? [];
+        setProviders(list);
         // Restore from localStorage or use server default
         const saved = localStorage.getItem(STORAGE_KEY);
-        const validIds = data.providers.map((p) => p.id);
+        const validIds = list.map((p) => p.id);
         if (saved && validIds.includes(saved)) {
           setSelectedState(saved);
         } else {
-          setSelectedState(data.default);
+          setSelectedState(data.default ?? list[0]?.id ?? null);
         }
       })
       .catch(() => {
-        // Fallback — assume anthropic
-        setSelectedState("anthropic");
+        // Not authenticated or network error — leave providers empty
+        setProviders([]);
+        setSelectedState(null);
       })
       .finally(() => setLoading(false));
   }, []);
