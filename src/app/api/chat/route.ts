@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveProviders, classifyProviderError } from "@/lib/ai/providers";
 import { getConversationPrompt } from "@/lib/ai/prompts";
-import { safeParseJSON, getDefaultConversationResponse, sanitizeConversation, type ConversationResponse } from "@/lib/ai/parsers";
+import { safeParseJSON, getDefaultConversationResponse, sanitizeConversation } from "@/lib/ai/parsers";
 import { getScenarioById } from "@/lib/scenarios";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 

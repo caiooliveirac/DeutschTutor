@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveProviders, classifyProviderError } from "@/lib/ai/providers";
 import { getSchreibenPrompt } from "@/lib/ai/prompts";
-import { safeParseJSON, sanitizeSchreiben, type SchreibenResponse } from "@/lib/ai/parsers";
+import { safeParseJSON, sanitizeSchreiben } from "@/lib/ai/parsers";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {

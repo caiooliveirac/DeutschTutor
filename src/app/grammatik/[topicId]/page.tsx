@@ -64,7 +64,7 @@ export default function GrammatikTopicPage({ params }: { params: Promise<{ topic
     } finally {
       setLoading(false);
     }
-  }, [topicId]);
+  }, [topicId, providerId, level]);
 
   const checkAnswer = () => {
     if (!lesson) return;

@@ -12,7 +12,6 @@ import type { SchreibenResponse } from "@/lib/ai/parsers";
 import {
   ArrowLeft,
   Send,
-  Clock,
   FileText,
   CheckCircle2,
   XCircle,
@@ -126,7 +125,7 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
     } finally {
       setIsSubmitting(false);
     }
-  }, [task, text, wordCount]);
+  }, [task, text, wordCount, providerId, level]);
 
   const handleReset = () => {
     setText("");

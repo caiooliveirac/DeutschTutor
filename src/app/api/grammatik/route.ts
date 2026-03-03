@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveProviders, classifyProviderError } from "@/lib/ai/providers";
 import { getGrammatikPrompt } from "@/lib/ai/prompts";
-import { safeParseJSON, sanitizeGrammatik, type GrammatikResponse } from "@/lib/ai/parsers";
+import { safeParseJSON, sanitizeGrammatik } from "@/lib/ai/parsers";
 import { getGrammarTopicById } from "@/lib/grammar-topics";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 

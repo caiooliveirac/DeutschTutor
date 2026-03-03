@@ -39,7 +39,8 @@ export function Sidebar() {
 
   // Close mobile menu on route change
   useEffect(() => {
-    setMobileOpen(false);
+    if (mobileOpen) setMobileOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   // Close on Escape

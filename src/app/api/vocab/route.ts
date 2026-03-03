@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveProviders, classifyProviderError } from "@/lib/ai/providers";
 import { getVocabPrompt } from "@/lib/ai/prompts";
-import { safeParseJSON, sanitizeVocab, type VocabResponse } from "@/lib/ai/parsers";
+import { safeParseJSON, sanitizeVocab } from "@/lib/ai/parsers";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 import { getRecentVocabulary, getRecentErrors } from "@/lib/db/queries";
 import { pickRandomTheme, pickExerciseTypes } from "@/lib/vocab-themes";
