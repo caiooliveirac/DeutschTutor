@@ -413,7 +413,7 @@ pnpm db:studio    # UI visual do Drizzle
 ## Fluxo de Trabalho Recomendado
 
 ```
-1. pnpm dev                        # Desenvolve com hot reload
+1. pnpm dev                        # Desenvolve com hot reload (~100ms)
 2. Testa manualmente               # http://localhost:3000
 3. pnpm lint && pnpm exec tsc --noEmit  # Valida antes do commit
 4. git add -A && git commit -m "..."
@@ -422,6 +422,134 @@ pnpm db:studio    # UI visual do Drizzle
 ```
 
 Se o CD falhar (docker build quebra), o container anterior continua rodando — sem downtime.
+
+### Validação de build Docker local (opcional, pré-push)
+
+```bash
+# Só buildar (valida que o Dockerfile compila)
+docker compose -f docker-compose.dev.yml build
+
+# Buildar E rodar localmente em modo produção
+docker compose -f docker-compose.dev.yml up -d
+# → http://localhost:3000 (sem basePath, diferente de produção que usa /tutor)
+
+# Parar
+docker compose -f docker-compose.dev.yml down
+```
+
+> **Quando usar:** Antes de pushes que alteram dependências, `next.config.ts`,
+> Dockerfile, ou qualquer coisa que possa quebrar o build Docker. Não é necessário
+> para mudanças de código normais — o CI + CD já validam tudo.
+
+---
+
+## Por que NÃO usar Docker para dev ativo
+
+1. **`better-sqlite3` é nativo** — compila binários diferentes para macOS arm64 vs Linux x64. Bind mount de `node_modules` entre host e container quebra.
+2. **macOS Docker bind mount é lento** — cada file change leva 2-5s para sincronizar vs ~100ms nativo. Turbopack precisa de filesystem rápido.
+3. **O Dockerfile é multi-stage otimizado para produção** (`output: "standalone"`) — não suporta hot reload.
+4. **`pnpm dev` é superior em tudo** — hot reload instantâneo, debug direto, sem overhead de container.
+
+O `docker-compose.dev.yml` existe apenas para **validar o build de produção** localmente quando necessário.
+
+---
+
+## Prompt para Agente de Dev Local (macOS)
+
+Copie este prompt **inteiro** para instruir o agente Opus no macOS.
+Ele contém tudo que o agente precisa saber para operar com segurança.
+
+---
+
+<details>
+<summary><strong>📋 CLIQUE PARA EXPANDIR O PROMPT COMPLETO</strong></summary>
+
+```markdown
+# Instruções — DeutschTutor Pro (Dev Local macOS)
+
+Você é um agente de desenvolvimento trabalhando no projeto DeutschTutor Pro.
+Antes de qualquer alteração, leia o arquivo DEV_GUIDE.md na raiz do projeto.
+
+## Setup Inicial (executar apenas uma vez)
+
+Se o projeto ainda não está configurado:
+
+1. Verificar Node e pnpm:
+   node -v   # Deve ser 20.x
+   corepack enable && corepack prepare pnpm@10.30.3 --activate
+
+2. Instalar dependências:
+   pnpm install
+
+3. Criar .env na raiz (solicitar ao usuário as chaves necessárias):
+   ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_AI_KEY, XAI_API_KEY, DEEPSEEK_API_KEY
+   JWT_SECRET (string aleatória longa)
+   AUTH_USERS (formato: usuario:salt:hash)
+
+4. Criar diretório de dados:
+   mkdir -p data
+
+5. Verificar que funciona:
+   pnpm dev   # Deve abrir em http://localhost:3000
+
+## Após cada git pull
+
+   pnpm install   # Atualiza deps se lockfile mudou
+   mkdir -p data   # Garante diretório de dados
+
+## Regras OBRIGATÓRIAS durante desenvolvimento
+
+### Nunca fazer:
+- NÃO defina NEXT_PUBLIC_BASE_PATH no .env local (funciona sem, produção usa /tutor)
+- NÃO importe módulos Node.js (crypto, fs, path) em src/lib/auth.ts — é Edge Runtime
+- NÃO importe src/lib/auth.server.ts em arquivos que o middleware possa incluir
+- NÃO faça fetch("/api/...") sem usar apiUrl() — quebra em produção
+- NÃO use interfaces vazias (use type alias)
+- NÃO deixe imports não usados — o CI falha
+- NÃO rode pnpm build localmente sem mkdir -p data primeiro
+- NÃO faça docker compose up com o docker-compose.yml de produção localmente (rede perguntas_default não existe)
+
+### Sempre fazer:
+- SEMPRE use apiUrl("/api/...") para fetch no frontend (import de @/lib/api)
+- SEMPRE liste todas as dependências em arrays de useCallback/useEffect
+- SEMPRE valide antes de commit: pnpm lint && pnpm exec tsc --noEmit
+- SEMPRE use inicialização lazy para env vars (não throw no top-level)
+- SEMPRE adicione novos pacotes nativos em serverExternalPackages no next.config.ts
+- SEMPRE separe lógica Edge-safe (auth.ts) de Node-only (auth.server.ts)
+
+### Separação Edge vs Node:
+- auth.ts → JWT (jose), cookies, verifyRequestToken → PODE ser importado no middleware
+- auth.server.ts → crypto.scrypt, hashPassword, authenticateUser → SÓ em API routes
+- db/index.ts → better-sqlite3 → SÓ em API routes (server-side)
+
+### Arquitetura de AI providers:
+- Novos providers → implementar interface AIProvider em src/lib/ai/providers/types.ts
+- Registrar em src/lib/ai/providers/registry.ts
+- Respostas DEVEM ser JSON puro — ver AGENT_RUNTIME_GUIDE.md para contratos
+
+## Workflow de desenvolvimento
+
+1. pnpm dev                                    # Hot reload ativo
+2. [fazer alterações]
+3. pnpm lint && pnpm exec tsc --noEmit         # Validar
+4. git add -A && git commit -m "descrição"
+5. git push origin main                        # CI valida, CD faz deploy
+
+## Se precisar validar build Docker:
+
+docker compose -f docker-compose.dev.yml build   # Testa build de produção
+docker compose -f docker-compose.dev.yml up -d    # Roda como produção local
+# Acesso: http://localhost:3000
+docker compose -f docker-compose.dev.yml down     # Para
+
+## Documentação de referência:
+- DEV_GUIDE.md → Este guia (armadilhas, padrões, checklists)
+- AGENT_RUNTIME_GUIDE.md → Contratos JSON dos endpoints de IA
+- AGENT_CONTENT_GUIDE.md → Conteúdo pedagógico (cenários, gramática, etc.)
+- DEPLOY.md → Deploy em produção (EC2/Docker)
+```
+
+</details>
 
 ---
 
