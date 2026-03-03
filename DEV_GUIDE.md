@@ -68,6 +68,25 @@ AUTH_USERS=usuario:salt:hash
 
 > O `.env` está no `.gitignore` — **nunca** commite chaves.
 
+### Criando usuários para dev local
+
+O `AUTH_USERS` no `.env` usa o formato `username:salt:hash`. Para gerar:
+
+```bash
+node scripts/create-user.mjs meuusuario minhasenha123
+# Saída: meuusuario:abc123...:def456...
+
+# Cole no .env:
+# AUTH_USERS=meuusuario:abc123...:def456...
+# Para vários: AUTH_USERS=user1:s:h;user2:s:h
+```
+
+> **Dica:** Copie o `AUTH_USERS` do servidor de produção se quiser usar as mesmas credenciais. Ou gere novas com o script acima.
+
+### Banco de dados local
+
+O SQLite é criado automaticamente em `./data/deutschtutor.db` na primeira execução. Não é necessário copiar o banco de produção — as tabelas são criadas via `CREATE TABLE IF NOT EXISTS`. O dev começa com banco vazio (sem vocabulário, histórico, etc.), o que é o esperado.
+
 ---
 
 ## ⚠️ ARMADILHAS CRÍTICAS — Leia Antes de Tudo
@@ -541,12 +560,45 @@ Em AMBOS os casos, o loop de trabalho é idêntico:
 NUNCA rodar docker compose, docker build, ou qualquer comando Docker
 durante este loop. O hot reload já está funcionando.
 
+## Auth e banco de dados
+
+### Banco de dados (SQLite)
+O banco é criado automaticamente em ./data/deutschtutor.db na primeira execução.
+Não é necessário copiar o banco de produção. Tabelas são auto-criadas.
+Apenas garanta: mkdir -p data
+
+### Autenticação
+AUTH_USERS no .env usa formato username:salt:hash.
+Para criar credenciais locais:
+   node scripts/create-user.mjs meuusuario minhasenha
+   # Copie a saída para AUTH_USERS no .env
+
+JWT_SECRET pode ser qualquer string longa (mínimo 32 chars).
+Para gerar: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+Se o .env já tem AUTH_USERS e JWT_SECRET copiados do servidor, a auth já funciona
+com as mesmas credenciais de produção.
+
 ## Após cada git pull
 
    pnpm install   # Atualiza deps se lockfile mudou
    mkdir -p data   # Garante diretório de dados
    # Se usar dev container E deps mudaram:
    # docker compose -f docker-compose.dev.yml up -d --build
+
+## ARMADILHA PRINCIPAL: basePath (/ vs /tutor)
+
+Dev roda em / (sem basePath). Produção roda em /tutor.
+O Next.js aplica basePath automaticamente em Link, router.push, e Image.
+MAS NÃO aplica em fetch() manual.
+
+REGRA: todo fetch de API no frontend DEVE usar apiUrl():
+   import { apiUrl } from "@/lib/api";
+   fetch(apiUrl("/api/chat"), { ... })
+
+Se fizer fetch("/api/chat") sem apiUrl(), funciona no dev mas QUEBRA em produção.
+
+NUNCA defina NEXT_PUBLIC_BASE_PATH no .env local. Deve ficar vazio/ausente.
 
 ## Regras OBRIGATÓRIAS
 
