@@ -1,4 +1,4 @@
-import { anthropic, MODEL_FAST } from "./client";
+import { resolveProviders } from "./providers";
 import { getAnalysisPrompt } from "./prompts";
 import { safeParseJSON, getDefaultAnalysis, type AnalysisResponse } from "./parsers";
 
@@ -10,7 +10,8 @@ export interface ChatMessage {
 export async function analyzeMessage(
   userMessage: string,
   conversationContext: ChatMessage[],
-  level: string = "B1"
+  level: string = "B1",
+  providerId?: string,
 ): Promise<AnalysisResponse> {
   const systemPrompt = getAnalysisPrompt(level);
 
@@ -23,20 +24,19 @@ export async function analyzeMessage(
       : "";
 
   try {
-    const response = await anthropic.messages.create({
-      model: MODEL_FAST,
-      max_tokens: 1200,
-      system: systemPrompt,
+    const { fast: provider } = resolveProviders(providerId);
+
+    const text = await provider.chat({
+      systemPrompt,
       messages: [
         {
           role: "user",
           content: `Analise esta mensagem do aluno: "${userMessage}"${contextSummary}`,
         },
       ],
+      maxTokens: 1200,
     });
 
-    const text =
-      response.content[0].type === "text" ? response.content[0].text : "";
     const parsed = safeParseJSON<AnalysisResponse>(text);
 
     if (parsed) {

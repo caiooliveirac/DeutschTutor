@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeMessage, type ChatMessage } from "@/lib/ai/analyze";
-import { classifyAIError } from "@/lib/ai/client";
+import { classifyProviderError } from "@/lib/ai/providers";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
@@ -23,17 +23,18 @@ export async function POST(request: NextRequest) {
     const message = body.message as string | undefined;
     const conversationContext = (body.conversationContext ?? []) as ChatMessage[];
     const level = (body.level as string) || "B1";
+    const providerId = body.provider as string | undefined;
 
     if (!message || message.trim().length === 0) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
 
-    const analysis = await analyzeMessage(message, conversationContext, level);
+    const analysis = await analyzeMessage(message, conversationContext, level, providerId);
 
     return NextResponse.json(analysis);
   } catch (error) {
     console.error("Analyze API error:", error);
-    const { status, message } = classifyAIError(error);
+    const { status, message } = classifyProviderError(error);
     return NextResponse.json({ error: message }, { status });
   }
 }

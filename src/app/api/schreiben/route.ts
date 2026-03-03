@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { anthropic, MODEL, classifyAIError } from "@/lib/ai/client";
+import { resolveProviders, classifyProviderError } from "@/lib/ai/providers";
 import { getSchreibenPrompt } from "@/lib/ai/prompts";
 import { safeParseJSON, type SchreibenResponse } from "@/lib/ai/parsers";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
@@ -27,12 +27,14 @@ export async function POST(request: NextRequest) {
     const taskPoints = (body.taskPoints as string[]) || [];
     const register = (body.register as "formal" | "informal") || "formal";
     const level = (body.level as string) || "B1";
+    const providerId = body.provider as string | undefined;
 
     if (!userText || userText.trim().length === 0) {
       return NextResponse.json({ error: "Text is required" }, { status: 400 });
     }
 
     const systemPrompt = getSchreibenPrompt(level);
+    const { quality: provider } = resolveProviders(providerId);
 
     const userPrompt = `Avalie o seguinte texto do aluno para a tarefa de Schreiben:
 
@@ -49,18 +51,16 @@ ${userText}
 
 Número de palavras: ${userText.split(/\s+/).filter(Boolean).length}`;
 
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 3000,
-      system: systemPrompt,
+    const text = await provider.chat({
+      systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
+      maxTokens: 3000,
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
     const parsed = safeParseJSON<SchreibenResponse>(text);
 
     if (parsed) {
-      return NextResponse.json(parsed);
+      return NextResponse.json({ ...parsed, _provider: provider.name });
     }
 
     return NextResponse.json(
@@ -69,7 +69,7 @@ Número de palavras: ${userText.split(/\s+/).filter(Boolean).length}`;
     );
   } catch (error) {
     console.error("Schreiben API error:", error);
-    const { status, message } = classifyAIError(error);
+    const { status, message } = classifyProviderError(error);
     return NextResponse.json({ error: message }, { status });
   }
 }

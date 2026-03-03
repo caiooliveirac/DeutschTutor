@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { anthropic, MODEL, classifyAIError } from "@/lib/ai/client";
+import { resolveProviders, classifyProviderError } from "@/lib/ai/providers";
 import { getGrammatikPrompt } from "@/lib/ai/prompts";
 import { safeParseJSON, type GrammatikResponse } from "@/lib/ai/parsers";
 import { getGrammarTopicById } from "@/lib/grammar-topics";
@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
   try {
     const topicId = body.topicId as string | undefined;
     const level = (body.level as string) || "B1";
+    const providerId = body.provider as string | undefined;
 
     if (!topicId) {
       return NextResponse.json({ error: "topicId is required" }, { status: 400 });
@@ -35,24 +36,23 @@ export async function POST(request: NextRequest) {
     }
 
     const systemPrompt = getGrammatikPrompt(topic, level);
+    const { quality: provider } = resolveProviders(providerId);
 
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 3000,
-      system: systemPrompt,
+    const text = await provider.chat({
+      systemPrompt,
       messages: [
         {
           role: "user",
           content: `Crie a aula completa sobre "${topic.title}" com exercícios progressivos.`,
         },
       ],
+      maxTokens: 3000,
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
     const parsed = safeParseJSON<GrammatikResponse>(text);
 
     if (parsed) {
-      return NextResponse.json(parsed);
+      return NextResponse.json({ ...parsed, _provider: provider.name });
     }
 
     return NextResponse.json(
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("Grammatik API error:", error);
-    const { status, message } = classifyAIError(error);
+    const { status, message } = classifyProviderError(error);
     return NextResponse.json({ error: message }, { status });
   }
 }

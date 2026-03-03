@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { anthropic, MODEL_FAST, classifyAIError } from "@/lib/ai/client";
+import { resolveProviders, classifyProviderError } from "@/lib/ai/providers";
 import { getConversationPrompt } from "@/lib/ai/prompts";
 import { safeParseJSON, getDefaultConversationResponse, type ConversationResponse } from "@/lib/ai/parsers";
 import { getScenarioById } from "@/lib/scenarios";
@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
     const messages = body.messages as { role: "user" | "assistant"; content: string }[] | undefined;
     const scenarioId = (body.scenarioId as string) || "frei";
     const level = (body.level as string) || "B1";
+    const providerId = body.provider as string | undefined;
 
     // Input validation
     if (!Array.isArray(messages) || messages.length === 0) {
@@ -45,33 +46,28 @@ export async function POST(request: NextRequest) {
     }
 
     const systemPrompt = getConversationPrompt(scenario, level);
+    const { fast: provider } = resolveProviders(providerId);
 
-    const claudeMessages = cappedMessages.map((m) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    }));
-
-    const response = await anthropic.messages.create({
-      model: MODEL_FAST,
-      max_tokens: 800,
-      system: systemPrompt,
-      messages: claudeMessages,
+    const text = await provider.chat({
+      systemPrompt,
+      messages: cappedMessages,
+      maxTokens: 800,
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
     const parsed = safeParseJSON<ConversationResponse>(text);
 
     if (parsed) {
-      return NextResponse.json(parsed);
+      return NextResponse.json({ ...parsed, _provider: provider.name });
     }
 
     return NextResponse.json({
       ...getDefaultConversationResponse(),
       response: text || getDefaultConversationResponse().response,
+      _provider: provider.name,
     });
   } catch (error) {
     console.error("Chat API error:", error);
-    const { status, message } = classifyAIError(error);
+    const { status, message } = classifyProviderError(error);
     return NextResponse.json({ error: message }, { status });
   }
 }

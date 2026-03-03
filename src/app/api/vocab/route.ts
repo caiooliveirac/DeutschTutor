@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { anthropic, MODEL_FAST, classifyAIError } from "@/lib/ai/client";
+import { resolveProviders, classifyProviderError } from "@/lib/ai/providers";
 import { getVocabPrompt } from "@/lib/ai/prompts";
 import { safeParseJSON, type VocabResponse } from "@/lib/ai/parsers";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
     const recentWords = (body.recentWords as string[]) || [];
     const errorPatterns = (body.errorPatterns as string[]) || [];
     const level = (body.level as string) || "B1";
+    const providerId = body.provider as string | undefined;
 
     const systemPrompt = getVocabPrompt(
       recentWords.length > 0 ? recentWords : ["lernen", "sprechen", "verstehen", "arbeiten", "helfen"],
@@ -31,23 +32,23 @@ export async function POST(request: NextRequest) {
       level
     );
 
-    const response = await anthropic.messages.create({
-      model: MODEL_FAST,
-      max_tokens: 1500,
-      system: systemPrompt,
+    const { fast: provider } = resolveProviders(providerId);
+
+    const text = await provider.chat({
+      systemPrompt,
       messages: [
         {
           role: "user",
           content: "Crie 5 exercícios variados de vocabulário focados em produção ativa, com um word web.",
         },
       ],
+      maxTokens: 1500,
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
     const parsed = safeParseJSON<VocabResponse>(text);
 
     if (parsed) {
-      return NextResponse.json(parsed);
+      return NextResponse.json({ ...parsed, _provider: provider.name });
     }
 
     return NextResponse.json(
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("Vocab API error:", error);
-    const { status, message } = classifyAIError(error);
+    const { status, message } = classifyProviderError(error);
     return NextResponse.json({ error: message }, { status });
   }
 }

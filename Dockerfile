@@ -10,9 +10,8 @@ RUN apk add --no-cache python3 make g++
 ARG NEXT_PUBLIC_BASE_PATH=/tutor
 ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
 
-# Dummy key para o build passar (page data collection tenta importar o client).
-# A chave real é injetada em runtime via docker-compose.
-ENV ANTHROPIC_API_KEY=sk-ant-build-dummy
+# Providers are lazily instantiated at request time — no dummy key needed.
+# Real keys are injected via docker-compose at runtime.
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN corepack enable && corepack prepare pnpm@latest --activate
