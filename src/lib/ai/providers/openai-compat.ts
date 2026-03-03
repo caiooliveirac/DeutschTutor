@@ -47,6 +47,7 @@ export class OpenAICompatProvider implements AIProvider {
     const response = await this.client.chat.completions.create({
       model: this.model,
       ...tokenParam,
+      ...(params.temperature != null ? { temperature: params.temperature } : {}),
       messages: [
         { role: "system" as const, content: params.systemPrompt },
         ...params.messages.map((m) => ({

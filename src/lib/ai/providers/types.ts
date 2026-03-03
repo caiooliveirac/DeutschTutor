@@ -11,6 +11,8 @@ export interface ChatParams {
   systemPrompt: string;
   messages: { role: "user" | "assistant"; content: string }[];
   maxTokens: number;
+  /** Optional temperature (0-1). Higher = more creative/varied output. */
+  temperature?: number;
 }
 
 export interface AIProvider {

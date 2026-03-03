@@ -35,6 +35,7 @@ export class GoogleProvider implements AIProvider {
       config: {
         systemInstruction: params.systemPrompt,
         maxOutputTokens: params.maxTokens,
+        ...(params.temperature != null ? { temperature: params.temperature } : {}),
       },
     });
 

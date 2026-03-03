@@ -3,6 +3,8 @@ import { resolveProviders, classifyProviderError } from "@/lib/ai/providers";
 import { getVocabPrompt } from "@/lib/ai/prompts";
 import { safeParseJSON, sanitizeVocab, type VocabResponse } from "@/lib/ai/parsers";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
+import { getRecentVocabulary, getRecentErrors } from "@/lib/db/queries";
+import { pickRandomTheme, pickExerciseTypes } from "@/lib/vocab-themes";
 
 export async function POST(request: NextRequest) {
   const rl = checkRateLimit("ai-vocab", AI_RATE_LIMIT);
@@ -21,16 +23,40 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const recentWords = (body.recentWords as string[]) || [];
-    const errorPatterns = (body.errorPatterns as string[]) || [];
     const level = (body.level as string) || "B1";
     const providerId = body.provider as string | undefined;
 
-    const systemPrompt = getVocabPrompt(
-      recentWords.length > 0 ? recentWords : ["lernen", "sprechen", "verstehen", "arbeiten", "helfen"],
-      errorPatterns.length > 0 ? errorPatterns : ["Artikelfehler", "Wortstellung"],
-      level
-    );
+    // ── Pull real data from DB for personalization ──
+    const [recentVocab, recentErrors] = await Promise.all([
+      getRecentVocabulary(50),
+      getRecentErrors(20),
+    ]);
+
+    // Words already learned — exclude from new exercises
+    const excludeWords = recentVocab.map((v) => v.wordDe);
+
+    // Error patterns — focus exercises on weak areas
+    const errorPatterns = recentErrors
+      .filter((e) => !e.resolved)
+      .map((e) => `${e.category}: ${e.originalText} → ${e.correctedText}`)
+      .slice(0, 5);
+
+    // ── Randomization: pick theme + exercise types ──
+    // Track recently used themes via a simple in-memory window (per-request is fine,
+    // the randomness of pickRandomTheme handles long-term distribution)
+    const recentThemeIds = (body.recentThemes as string[]) || [];
+    const theme = pickRandomTheme(recentThemeIds);
+    const requiredTypes = pickExerciseTypes();
+    const sessionSeed = Math.floor(Math.random() * 99999);
+
+    const systemPrompt = getVocabPrompt({
+      level,
+      theme: { wortfeld: theme.wortfeld, context: theme.context, seedWords: theme.seedWords },
+      requiredTypes,
+      excludeWords: excludeWords.slice(0, 30), // Cap to avoid prompt bloat
+      errorPatterns,
+      sessionSeed,
+    });
 
     const { fast: provider } = resolveProviders(providerId);
 
@@ -39,17 +65,22 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: "user",
-          content: "Crie 5 exercícios variados de vocabulário focados em produção ativa, com um word web.",
+          content: `Sessão #${sessionSeed}. Wortfeld: ${theme.wortfeld}. Crie 5 exercícios NOVOS e ÚNICOS de vocabulário com word web. Tipos obrigatórios: ${requiredTypes.join(", ")}.`,
         },
       ],
       maxTokens: 3500,
+      temperature: 0.9,
     });
 
     const raw = safeParseJSON<Record<string, unknown>>(text);
 
     if (raw) {
       const parsed = sanitizeVocab(raw);
-      return NextResponse.json({ ...parsed, _provider: provider.name });
+      return NextResponse.json({
+        ...parsed,
+        _provider: provider.name,
+        _theme: { id: theme.id, label: theme.label, wortfeld: theme.wortfeld },
+      });
     }
 
     console.error(

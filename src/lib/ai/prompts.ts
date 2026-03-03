@@ -55,22 +55,54 @@ Antworte NUR als JSON (kein Markdown):
 }
 
 // ── Vocabulary Trainer (FAST · max_tokens: 3500) ──
-export function getVocabPrompt(recentWords: string[], errorPatterns: string[], level: string): string {
-  return `Treinador de vocabulário alemão nível ${level} para médico brasileiro. Objetivo: converter conhecimento PASSIVO em PRODUÇÃO ATIVA.
+export function getVocabPrompt(opts: {
+  level: string;
+  theme: { wortfeld: string; context: string; seedWords: string[] };
+  requiredTypes: string[];
+  excludeWords: string[];
+  errorPatterns: string[];
+  sessionSeed: number;
+}): string {
+  const { level, theme, requiredTypes, excludeWords, errorPatterns, sessionSeed } = opts;
 
-DADOS: Palavras recentes: ${recentWords.join(", ") || "nenhuma"}. Erros: ${errorPatterns.join(", ") || "nenhum"}.
+  const excludeBlock = excludeWords.length > 0
+    ? `\nPALAVRAS JÁ TREINADAS (NÃO repita): ${excludeWords.join(", ")}`
+    : "";
 
-Crie 5 exercícios variados (mín. 3 tipos diferentes):
-- ptToDe: frase PT-BR → tradução alemão
-- contextGuess: parágrafo alemão com lacuna
-- collocation: palavra → combinações (Verb+Präposition)
-- wordFamily: um membro → outros (arbeiten→Arbeit→Arbeiter)
-- sentenceBuild: palavras desordenadas → frase correta
+  const errorsBlock = errorPatterns.length > 0
+    ? `\nERROS FREQUENTES DO ALUNO: ${errorPatterns.join(", ")} — crie pelo menos 1 exercício que trabalhe esses pontos fracos.`
+    : "";
 
-WORDWEB: palavra central + 4-6 conexões reais.
+  return `Treinador de vocabulário alemão nível ${level} para médico brasileiro.
+Objetivo: converter conhecimento PASSIVO em PRODUÇÃO ATIVA.
 
-Responda APENAS em JSON (sem markdown):
-{"exercises":[{"type":"tipo","prompt":"prompt","answer":"resposta","acceptableAnswers":["var1"],"hint":"dica","explanation":"explicação"}],"wordWeb":{"centerWord":"palavra","related":[{"word":"rel","relation":"tipo","example":"frase"}]}}`;
+WORTFELD DESTA SESSÃO: ${theme.wortfeld}
+CONTEXTO: ${theme.context}
+PALAVRAS-SEMENTE (use como inspiração, NÃO copie literalmente): ${theme.seedWords.join(", ")}
+${excludeBlock}${errorsBlock}
+
+SEED DE VARIAÇÃO: ${sessionSeed}
+Use este seed para variar seus exemplos. Cada sessão deve ser ÚNICA — novas frases, novas palavras, novos contextos. NUNCA repita exercícios de sessões anteriores.
+
+Crie EXATAMENTE 5 exercícios. TIPOS OBRIGATÓRIOS nesta sessão: ${requiredTypes.join(", ")}. Complete até 5 com tipos livres.
+Tipos disponíveis:
+- ptToDe: frase situacional PT-BR → tradução completa em alemão (não palavras isoladas!)
+- contextGuess: parágrafo de 2-3 frases em alemão com UMA lacuna (___) → preencher
+- collocation: palavra alemã → combinações reais (Verb+Präposition, Nomen+Verb)
+- wordFamily: um membro da família → derivar outros (arbeiten→Arbeit→Arbeiter→arbeitstätig)
+- sentenceBuild: 5-7 palavras alemãs desordenadas → montar frase gramaticalmente correta
+
+REGRAS:
+- Todos os exercícios DEVEM estar no Wortfeld "${theme.wortfeld}"
+- Prompts de ptToDe devem ser frases completas e situacionais, NUNCA palavras soltas
+- Explicações em PT-BR, prompts e respostas em alemão
+- acceptableAnswers: inclua 2-3 variações aceitáveis (sinônimos, ordem alternativa)
+- hints: dê dica gramatical ou primeira letra, NUNCA a resposta
+
+WORDWEB: escolha UMA palavra central do Wortfeld + 5-6 conexões (sinônimos, antônimos, compostos, colocações, família). Cada conexão com frase-exemplo.
+
+Responda APENAS em JSON (sem markdown, sem \`\`\`):
+{"exercises":[{"type":"tipo","prompt":"prompt","answer":"resposta","acceptableAnswers":["var1","var2"],"hint":"dica gramatical","explanation":"explicação PT-BR"}],"wordWeb":{"centerWord":"palavra","related":[{"word":"rel","relation":"tipo","example":"frase completa"}]}}`;
 }
 
 

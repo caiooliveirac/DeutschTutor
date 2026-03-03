@@ -52,6 +52,8 @@ export default function WortschatzPage() {
   const [sessionStarted, setSessionStarted] = useState(false);
   const [dueCount, setDueCount] = useState(0);
   const [vocabCount, setVocabCount] = useState(0);
+  const [recentThemes, setRecentThemes] = useState<string[]>([]);
+  const [currentTheme, setCurrentTheme] = useState<{ id: string; label: string; wortfeld: string } | null>(null);
 
   // Fetch stats on mount
   useEffect(() => {
@@ -71,20 +73,29 @@ export default function WortschatzPage() {
       const res = await fetch(apiUrl("/api/vocab"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: providerId, level }),
+        body: JSON.stringify({ provider: providerId, level, recentThemes }),
       });
       if (!res.ok) throw new Error("API error");
-      const json: VocabResponse = await res.json();
-      setData(json);
-      setResults(json.exercises.map(() => ({ userAnswer: "", isCorrect: false, revealed: false })));
+      const json = await res.json();
+      setData(json as VocabResponse);
+      setResults((json as VocabResponse).exercises.map(() => ({ userAnswer: "", isCorrect: false, revealed: false })));
       setCurrentExercise(0);
       setShowAnswer(false);
+
+      // Track theme to avoid repetition in next sessions
+      if (json._theme?.id) {
+        setCurrentTheme(json._theme);
+        setRecentThemes((prev) => {
+          const updated = [json._theme.id, ...prev].slice(0, 5); // Keep last 5
+          return updated;
+        });
+      }
     } catch (err) {
       console.error("Load exercises error:", err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [providerId, level, recentThemes]);
 
   const checkAnswer = () => {
     if (!data) return;
@@ -243,7 +254,15 @@ export default function WortschatzPage() {
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Main: exercises */}
           <div className="lg:col-span-2 space-y-4">
-            {/* Progress */}
+            {/* Theme + Progress */}
+            {currentTheme && (
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="outline" className="text-xs font-medium">
+                  🎯 {currentTheme.wortfeld}
+                </Badge>
+                <span className="text-xs text-muted-foreground">({currentTheme.label})</span>
+              </div>
+            )}
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground">Progresso:</span>
               <div className="flex gap-1.5 flex-1">
