@@ -39,6 +39,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Rebuild better-sqlite3 native binding
+        run: pnpm rebuild better-sqlite3
+
+      - name: Prepare data directory
+        run: mkdir -p data
+
       - name: Lint
         run: pnpm lint
 
@@ -47,6 +53,3 @@ jobs:
 
       - name: Build
         run: pnpm build
-        env:
-          # DB is not needed at build time — prevent connection errors
-          SKIP_DB_INIT: "1"
