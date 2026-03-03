@@ -1,0 +1,39 @@
+name: CD (EC2)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Evita deploys concorrentes se fizer pushes em sequência
+concurrency:
+  group: deutschtutor-prod
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Só faz deploy se o CI passou (no push para main, CI roda em paralelo)
+    needs: []
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            cd /home/ubuntu/deutschtutor-pro
+
+            # Atualiza código
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Rebuild + restart
+            docker compose up -d --build --force-recreate --remove-orphans
+
+            # Limpeza de imagens antigas
+            docker image prune -f
