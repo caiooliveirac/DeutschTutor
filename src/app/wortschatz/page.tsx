@@ -22,6 +22,7 @@ import {
   BookText,
   Clock,
 } from "lucide-react";
+import { useProvider } from "@/components/ProviderContext";
 
 const exerciseTypeLabels: Record<string, string> = {
   ptToDe: "PT → DE",
@@ -38,6 +39,7 @@ type ExerciseResult = {
 };
 
 export default function WortschatzPage() {
+  const { selected: providerId } = useProvider();
   const [data, setData] = useState<VocabResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [currentExercise, setCurrentExercise] = useState(0);
@@ -67,7 +69,7 @@ export default function WortschatzPage() {
       const res = await fetch(apiUrl("/api/vocab"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ provider: providerId }),
       });
       if (!res.ok) throw new Error("API error");
       const json: VocabResponse = await res.json();

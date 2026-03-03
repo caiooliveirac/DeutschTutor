@@ -17,6 +17,7 @@ import {
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ProviderPicker } from "./ProviderPicker";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
@@ -97,12 +98,15 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="border-t p-4">
-        <div className="rounded-lg bg-primary/5 p-3">
-          <p className="text-xs font-medium text-primary">Nível: B1</p>
-          <p className="text-[10px] text-muted-foreground mt-1">
-            Preparação Goethe B1
-          </p>
+      <div className="border-t pt-3">
+        <ProviderPicker />
+        <div className="px-4 pb-4">
+          <div className="rounded-lg bg-primary/5 p-3">
+            <p className="text-xs font-medium text-primary">Nível: B1</p>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Preparação Goethe B1
+            </p>
+          </div>
         </div>
       </div>
     </>

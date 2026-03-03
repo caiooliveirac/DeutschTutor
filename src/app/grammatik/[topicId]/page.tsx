@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   Eye,
 } from "lucide-react";
+import { useProvider } from "@/components/ProviderContext";
 
 type ExerciseResult = {
   userAnswer: string;
@@ -31,6 +32,7 @@ export default function GrammatikTopicPage({ params }: { params: Promise<{ topic
   const { topicId } = use(params);
   const router = useRouter();
   const topic = getGrammarTopicById(topicId);
+  const { selected: providerId } = useProvider();
 
   const [lesson, setLesson] = useState<GrammatikResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -48,7 +50,7 @@ export default function GrammatikTopicPage({ params }: { params: Promise<{ topic
       const res = await fetch(apiUrl("/api/grammatik"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topicId }),
+        body: JSON.stringify({ topicId, provider: providerId }),
       });
       if (!res.ok) throw new Error("API error");
       const data: GrammatikResponse = await res.json();

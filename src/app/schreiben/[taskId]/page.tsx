@@ -24,6 +24,7 @@ import {
   TimerOff,
   PenLine,
 } from "lucide-react";
+import { useProvider } from "@/components/ProviderContext";
 
 // Score bar component
 function ScoreBar({ label, score, comment }: { label: string; score: number; comment: string }) {
@@ -53,6 +54,7 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
   const router = useRouter();
   const task = getSchreibenTaskById(taskId);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { selected: providerId } = useProvider();
 
   const [text, setText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -95,6 +97,7 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
           taskSituation: task.situation,
           taskPoints: task.points,
           register: task.register,
+          provider: providerId,
         }),
       });
 

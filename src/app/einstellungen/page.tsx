@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useProvider } from "@/components/ProviderContext";
 import {
   Download,
   FileJson,
@@ -19,6 +20,8 @@ import {
 export default function EinstellungenPage() {
   const [exporting, setExporting] = useState<string | null>(null);
   const [lastExport, setLastExport] = useState<string | null>(null);
+  const { providers, selected } = useProvider();
+  const currentProvider = providers.find(p => p.id === selected);
 
   const handleExport = async (format: "json" | "csv") => {
     setExporting(format);
@@ -167,11 +170,11 @@ export default function EinstellungenPage() {
               </div>
               <div>
                 <p className="text-muted-foreground">Motor de IA</p>
-                <p className="font-medium">Claude Sonnet 4</p>
+                <p className="font-medium">{currentProvider?.name || "Nenhum"}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">SRS</p>
-                <p className="font-medium">FSRS v4</p>
+                <p className="text-muted-foreground">Providers ativos</p>
+                <p className="font-medium">{providers.length}</p>
               </div>
             </div>
           </CardContent>
@@ -185,8 +188,8 @@ export default function EinstellungenPage() {
               <p className="text-sm font-medium">Privacidade</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Todos os dados são armazenados localmente no seu computador. 
-                Nenhum dado é enviado para servidores externos, exceto as mensagens 
-                enviadas à API da Anthropic para processamento de linguagem natural.
+                As mensagens são enviadas ao provedor de IA selecionado 
+                ({currentProvider?.name || "Anthropic"}) para processamento de linguagem natural.
               </p>
             </div>
           </CardContent>

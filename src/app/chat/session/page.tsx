@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { getScenarioById } from "@/lib/scenarios";
 import type { ConversationResponse, AnalysisResponse } from "@/lib/ai/parsers";
 import { Loader2, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { useProvider } from "@/components/ProviderContext";
+import { ProviderBadge } from "@/components/ProviderPicker";
 
 interface Message {
   id: string;
@@ -24,6 +26,7 @@ function ChatSessionContent() {
   const scenarioId = searchParams.get("scenario") || "frei";
   const scenario = getScenarioById(scenarioId);
 
+  const { selected: providerId } = useProvider();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null);
@@ -124,6 +127,7 @@ function ChatSessionContent() {
         body: JSON.stringify({
           messages: apiMessages,
           scenarioId,
+          provider: providerId,
         }),
       });
 
@@ -185,6 +189,7 @@ function ChatSessionContent() {
         body: JSON.stringify({
           message: content,
           conversationContext,
+          provider: providerId,
         }),
       });
 
@@ -272,6 +277,7 @@ function ChatSessionContent() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <ProviderBadge />
             <Badge variant="outline" className="text-[10px]">
               B1
             </Badge>
