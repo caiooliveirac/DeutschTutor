@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
           content: `Crie a aula completa sobre "${topic.title}" com exercícios progressivos.`,
         },
       ],
-      maxTokens: 3000,
+      maxTokens: 4000,
     });
 
     const parsed = safeParseJSON<GrammatikResponse>(text);

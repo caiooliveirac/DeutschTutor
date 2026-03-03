@@ -54,7 +54,7 @@ Número de palavras: ${userText.split(/\s+/).filter(Boolean).length}`;
     const text = await provider.chat({
       systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
-      maxTokens: 3000,
+      maxTokens: 4000,
     });
 
     const parsed = safeParseJSON<SchreibenResponse>(text);
