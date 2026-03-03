@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveProviders, classifyProviderError } from "@/lib/ai/providers";
 import { getVocabPrompt } from "@/lib/ai/prompts";
-import { safeParseJSON, type VocabResponse } from "@/lib/ai/parsers";
+import { safeParseJSON, sanitizeVocab, type VocabResponse } from "@/lib/ai/parsers";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
@@ -45,9 +45,10 @@ export async function POST(request: NextRequest) {
       maxTokens: 1500,
     });
 
-    const parsed = safeParseJSON<VocabResponse>(text);
+    const raw = safeParseJSON<Record<string, unknown>>(text);
 
-    if (parsed) {
+    if (raw) {
+      const parsed = sanitizeVocab(raw);
       return NextResponse.json({ ...parsed, _provider: provider.name });
     }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveProviders, classifyProviderError } from "@/lib/ai/providers";
 import { getSchreibenPrompt } from "@/lib/ai/prompts";
-import { safeParseJSON, type SchreibenResponse } from "@/lib/ai/parsers";
+import { safeParseJSON, sanitizeSchreiben, type SchreibenResponse } from "@/lib/ai/parsers";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
@@ -57,9 +57,10 @@ Número de palavras: ${userText.split(/\s+/).filter(Boolean).length}`;
       maxTokens: 4000,
     });
 
-    const parsed = safeParseJSON<SchreibenResponse>(text);
+    const raw = safeParseJSON<Record<string, unknown>>(text);
 
-    if (parsed) {
+    if (raw) {
+      const parsed = sanitizeSchreiben(raw);
       return NextResponse.json({ ...parsed, _provider: provider.name });
     }
 

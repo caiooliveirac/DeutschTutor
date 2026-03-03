@@ -233,7 +233,7 @@ function ChatSessionContent() {
       }
 
       // Track quality
-      if (analysis.overallQuality) {
+      if (analysis.overallQuality != null) {
         persist("trackQuality", { quality: analysis.overallQuality });
       }
 

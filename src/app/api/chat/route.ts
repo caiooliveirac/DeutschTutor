@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveProviders, classifyProviderError } from "@/lib/ai/providers";
 import { getConversationPrompt } from "@/lib/ai/prompts";
-import { safeParseJSON, getDefaultConversationResponse, type ConversationResponse } from "@/lib/ai/parsers";
+import { safeParseJSON, getDefaultConversationResponse, sanitizeConversation, type ConversationResponse } from "@/lib/ai/parsers";
 import { getScenarioById } from "@/lib/scenarios";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
 
@@ -54,9 +54,10 @@ export async function POST(request: NextRequest) {
       maxTokens: 1000,
     });
 
-    const parsed = safeParseJSON<ConversationResponse>(text);
+    const raw = safeParseJSON<Record<string, unknown>>(text);
 
-    if (parsed) {
+    if (raw) {
+      const parsed = sanitizeConversation(raw);
       return NextResponse.json({ ...parsed, _provider: provider.name });
     }
 

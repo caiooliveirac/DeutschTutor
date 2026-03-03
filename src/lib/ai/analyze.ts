@@ -1,6 +1,6 @@
 import { resolveProviders } from "./providers";
 import { getAnalysisPrompt } from "./prompts";
-import { safeParseJSON, getDefaultAnalysis, type AnalysisResponse } from "./parsers";
+import { safeParseJSON, getDefaultAnalysis, sanitizeAnalysis, type AnalysisResponse } from "./parsers";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -37,10 +37,10 @@ export async function analyzeMessage(
       maxTokens: 2000,
     });
 
-    const parsed = safeParseJSON<AnalysisResponse>(text);
+    const raw = safeParseJSON<Record<string, unknown>>(text);
 
-    if (parsed) {
-      return parsed;
+    if (raw) {
+      return sanitizeAnalysis(raw, userMessage);
     }
 
     return getDefaultAnalysis(userMessage);

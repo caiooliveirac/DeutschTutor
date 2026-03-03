@@ -1,7 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 
 // ── Constants ───────────────────────────────────────────
 const JWT_SECRET_RAW = process.env.JWT_SECRET || "";
@@ -16,9 +15,10 @@ const COOKIE_NAME = "dt_session";
 const TOKEN_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
-// ── Password hashing (Node crypto.scrypt — no extra deps) ──
+// ── Password hashing (dynamic import to keep module edge-compatible) ──
 
 export async function hashPassword(password: string): Promise<string> {
+  const crypto = await import("crypto");
   return new Promise((resolve, reject) => {
     const salt = crypto.randomBytes(16).toString("hex");
     crypto.scrypt(password, salt, 64, (err, derivedKey) => {
@@ -29,6 +29,7 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  const crypto = await import("crypto");
   return new Promise((resolve, reject) => {
     const [salt, key] = hash.split(":");
     crypto.scrypt(password, salt, 64, (err, derivedKey) => {
