@@ -33,6 +33,13 @@ export class AnthropicProvider implements AIProvider {
       })),
     });
 
+    if (response.stop_reason === "max_tokens") {
+      console.warn(
+        `[anthropic] Response truncated (max_tokens=${params.maxTokens}, ` +
+        `model=${this.model}, usage=${response.usage.input_tokens}in/${response.usage.output_tokens}out)`
+      );
+    }
+
     return response.content[0].type === "text" ? response.content[0].text : "";
   }
 }

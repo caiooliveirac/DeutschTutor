@@ -56,7 +56,14 @@ export class OpenAICompatProvider implements AIProvider {
       ],
     });
 
-    return response.choices[0]?.message?.content ?? "";
+    const choice = response.choices[0];
+    if (choice?.finish_reason === "length") {
+      console.warn(
+        `[${this.id}] Response truncated (max_tokens=${params.maxTokens}, model=${this.model})`
+      );
+    }
+
+    return choice?.message?.content ?? "";
   }
 }
 

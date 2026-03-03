@@ -52,6 +52,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ...parsed, _provider: provider.name });
     }
 
+    console.error(
+      `[vocab] safeParseJSON returned null. Provider: ${provider.id}/${provider.model}. ` +
+      `Raw (${text.length} chars): ${text.slice(0, 500)}`
+    );
     return NextResponse.json(
       { error: "Failed to parse vocab response" },
       { status: 500 }

@@ -64,6 +64,10 @@ Número de palavras: ${userText.split(/\s+/).filter(Boolean).length}`;
       return NextResponse.json({ ...parsed, _provider: provider.name });
     }
 
+    console.error(
+      `[schreiben] safeParseJSON returned null. Provider: ${provider.id}/${provider.model}. ` +
+      `Raw (${text.length} chars): ${text.slice(0, 500)}`
+    );
     return NextResponse.json(
       { error: "Failed to parse evaluation response" },
       { status: 500 }

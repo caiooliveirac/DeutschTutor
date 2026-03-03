@@ -38,6 +38,14 @@ export class GoogleProvider implements AIProvider {
       },
     });
 
+    // Check for truncation via finishReason
+    const candidate = response.candidates?.[0];
+    if (candidate?.finishReason === "MAX_TOKENS") {
+      console.warn(
+        `[google] Response truncated (maxOutputTokens=${params.maxTokens}, model=${this.model})`
+      );
+    }
+
     return response.text ?? "";
   }
 }

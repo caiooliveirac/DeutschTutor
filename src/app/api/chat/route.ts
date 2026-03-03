@@ -61,6 +61,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ...parsed, _provider: provider.name });
     }
 
+    console.error(
+      `[chat] safeParseJSON returned null. Provider: ${provider.id}/${provider.model}. ` +
+      `Raw (${text.length} chars): ${text.slice(0, 300)}`
+    );
     return NextResponse.json({
       ...getDefaultConversationResponse(),
       response: text || getDefaultConversationResponse().response,
