@@ -1,7 +1,10 @@
 name: CD (EC2)
 
 on:
-  push:
+  # Só roda deploy quando o CI passar com sucesso
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -13,8 +16,9 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Só faz deploy se o CI passou (no push para main, CI roda em paralelo)
-    needs: []
+    # Só executa se o CI concluiu com sucesso (ou se foi dispatch manual)
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.0.3
