@@ -99,8 +99,10 @@ export async function verifyRequestToken(req: NextRequest): Promise<boolean> {
   return payload !== null;
 }
 
-// ── User store (env-based — single admin user) ──
-// Format in .env: AUTH_USER=username:salt:scrypthash
+// ── User store (env-based — multiple users) ──
+// Format in .env: AUTH_USERS=user1:salt:hash;user2:salt:hash
+// Also supports legacy AUTH_USER=username:salt:hash (single user)
+const AUTH_USERS_RAW = process.env.AUTH_USERS || "";
 const AUTH_USER_RAW = process.env.AUTH_USER || "";
 
 interface AuthUser {
@@ -108,31 +110,38 @@ interface AuthUser {
   passwordHash: string;
 }
 
-function parseAuthUser(): AuthUser | null {
-  if (!AUTH_USER_RAW) return null;
-  const firstColon = AUTH_USER_RAW.indexOf(":");
-  if (firstColon === -1) return null;
-  return {
-    username: AUTH_USER_RAW.slice(0, firstColon),
-    passwordHash: AUTH_USER_RAW.slice(firstColon + 1),
-  };
+function parseUsers(): AuthUser[] {
+  const users: AuthUser[] = [];
+  const raw = AUTH_USERS_RAW || AUTH_USER_RAW;
+  if (!raw) return users;
+
+  const entries = raw.includes(";") ? raw.split(";") : [raw];
+  for (const entry of entries) {
+    const trimmed = entry.trim();
+    if (!trimmed) continue;
+    const firstColon = trimmed.indexOf(":");
+    if (firstColon === -1) continue;
+    users.push({
+      username: trimmed.slice(0, firstColon),
+      passwordHash: trimmed.slice(firstColon + 1),
+    });
+  }
+  return users;
 }
 
 export async function authenticateUser(
   username: string,
   password: string
 ): Promise<boolean> {
-  const user = parseAuthUser();
-  if (!user) return false;
+  const users = parseUsers();
+  if (users.length === 0) return false;
 
-  // Constant-time username comparison
-  const usernameMatch =
-    username.length === user.username.length &&
-    crypto.timingSafeEqual(
-      Buffer.from(username.toLowerCase()),
-      Buffer.from(user.username.toLowerCase())
-    );
-  if (!usernameMatch) {
+  // Find matching user (case-insensitive)
+  const user = users.find(
+    (u) => u.username.toLowerCase() === username.toLowerCase()
+  );
+
+  if (!user) {
     // Still verify against dummy hash to prevent timing attacks
     await verifyPassword(password, "0000000000000000:0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
     return false;
