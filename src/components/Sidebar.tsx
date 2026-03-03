@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProviderPicker } from "./ProviderPicker";
+import { LevelPicker } from "./LevelPicker";
+import { useLevel } from "./LevelContext";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
@@ -32,6 +34,7 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { level } = useLevel();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Close mobile menu on route change
@@ -57,7 +60,7 @@ export function Sidebar() {
           <div>
             <h1 className="text-lg font-bold text-foreground">DeutschTutor</h1>
             <p className="text-[10px] text-muted-foreground tracking-wider uppercase">
-              Goethe B1 Prep
+              Goethe {level} Prep
             </p>
           </div>
         </div>
@@ -100,14 +103,7 @@ export function Sidebar() {
       {/* Footer */}
       <div className="border-t pt-3">
         <ProviderPicker />
-        <div className="px-4 pb-4">
-          <div className="rounded-lg bg-primary/5 p-3">
-            <p className="text-xs font-medium text-primary">Nível: B1</p>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Preparação Goethe B1
-            </p>
-          </div>
-        </div>
+        <LevelPicker />
       </div>
     </>
   );

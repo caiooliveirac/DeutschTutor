@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DeutschTutor Pro — Goethe B1 Preparation",
-  description: "Personal German learning app for Goethe B1 exam preparation",
+  title: "DeutschTutor Pro — Goethe Preparation",
+  description: "Personal German learning app for Goethe exam preparation",
 };
 
 export default function RootLayout({

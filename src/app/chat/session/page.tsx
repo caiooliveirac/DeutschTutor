@@ -12,6 +12,8 @@ import type { ConversationResponse, AnalysisResponse } from "@/lib/ai/parsers";
 import { Loader2, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { useProvider } from "@/components/ProviderContext";
 import { ProviderBadge } from "@/components/ProviderPicker";
+import { useLevel } from "@/components/LevelContext";
+import { LevelBadge } from "@/components/LevelPicker";
 
 interface Message {
   id: string;
@@ -27,6 +29,7 @@ function ChatSessionContent() {
   const scenario = getScenarioById(scenarioId);
 
   const { selected: providerId } = useProvider();
+  const { level } = useLevel();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null);
@@ -128,6 +131,7 @@ function ChatSessionContent() {
           messages: apiMessages,
           scenarioId,
           provider: providerId,
+          level,
         }),
       });
 
@@ -190,6 +194,7 @@ function ChatSessionContent() {
           message: content,
           conversationContext,
           provider: providerId,
+          level,
         }),
       });
 
@@ -278,9 +283,7 @@ function ChatSessionContent() {
           </div>
           <div className="flex items-center gap-2">
             <ProviderBadge />
-            <Badge variant="outline" className="text-[10px]">
-              B1
-            </Badge>
+            <LevelBadge />
             <Badge variant="secondary" className="text-[10px]">
               {messages.filter((m) => m.role === "user").length} Nachrichten
             </Badge>

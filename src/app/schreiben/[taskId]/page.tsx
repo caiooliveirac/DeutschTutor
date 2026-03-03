@@ -25,6 +25,7 @@ import {
   PenLine,
 } from "lucide-react";
 import { useProvider } from "@/components/ProviderContext";
+import { useLevel } from "@/components/LevelContext";
 
 // Score bar component
 function ScoreBar({ label, score, comment }: { label: string; score: number; comment: string }) {
@@ -55,6 +56,7 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
   const task = getSchreibenTaskById(taskId);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { selected: providerId } = useProvider();
+  const { level } = useLevel();
 
   const [text, setText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -98,6 +100,7 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
           taskPoints: task.points,
           register: task.register,
           provider: providerId,
+          level,
         }),
       });
 

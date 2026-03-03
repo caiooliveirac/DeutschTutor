@@ -24,7 +24,7 @@ export async function analyzeMessage(
       : "";
 
   try {
-    const { quality: provider } = resolveProviders(providerId);
+    const { fast: provider } = resolveProviders(providerId);
 
     const text = await provider.chat({
       systemPrompt,
@@ -34,7 +34,7 @@ export async function analyzeMessage(
           content: `Analise esta mensagem do aluno: "${userMessage}"${contextSummary}`,
         },
       ],
-      maxTokens: 2500,
+      maxTokens: 2000,
     });
 
     const parsed = safeParseJSON<AnalysisResponse>(text);
