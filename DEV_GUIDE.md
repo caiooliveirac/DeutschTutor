@@ -48,7 +48,7 @@ mkdir -p data
 
 # 7. Rode
 pnpm dev
-# → http://localhost:3000
+# → http://localhost:3001
 ```
 
 ### Variáveis de ambiente (`.env`)
@@ -97,7 +97,7 @@ Cada item abaixo custou horas de debug real. **Não pule.**
 
 | Ambiente | Valor | Acesso |
 |----------|-------|--------|
-| **Dev local** | vazio / não definido | `http://localhost:3000/` |
+| **Dev local** | vazio / não definido | `http://localhost:3001/` |
 | **Produção** | `/tutor` | `https://mnrs.com.br/tutor/` |
 
 **Se definir `/tutor` localmente**, todas as rotas vão exigir prefixo `/tutor/` e nada funciona direto. **Nunca defina** essa variável no `.env` local.
@@ -363,7 +363,7 @@ Ambas são válidas. Escolha uma e **fique nela**.
 ### Opção 1: Host direto (sem Docker)
 
 ```bash
-pnpm dev   # Hot reload instantâneo em http://localhost:3000
+pnpm dev   # Hot reload instantâneo em http://localhost:3001
 ```
 
 Requisitos: Node 20.x + pnpm 10.30.3 instalados no macOS.
@@ -376,7 +376,7 @@ Container sobe **UMA VEZ** e fica de pé. Código bind-mounted, hot reload autom
 # Primeiro uso (ou quando deps mudarem):
 docker compose -f docker-compose.dev.yml up -d --build
 
-# Pronto. Hot reload ativo em http://localhost:3000
+# Pronto. Hot reload ativo em http://localhost:3001
 # Edite o código normalmente — as mudanças aparecem automaticamente.
 ```
 
@@ -479,7 +479,7 @@ pnpm db:studio    # UI visual do Drizzle
 
 ```
 1. [fazer alterações no código]       # Editar normalmente
-2. Hot reload automático               # http://localhost:3000 (sem ação necessária)
+2. Hot reload automático               # http://localhost:3001 (sem ação necessária)
 3. pnpm lint && pnpm exec tsc --noEmit # Validar antes do commit
 4. git add -A && git commit -m "..."
 5. git push origin main               # CI roda lint+typecheck → CD faz deploy
@@ -540,7 +540,7 @@ Antes de qualquer alteração, leia o arquivo DEV_GUIDE.md na raiz do projeto.
 O hot reload DEVE estar sempre ativo. Escolha UMA das opções abaixo (a que já estiver rodando):
 
 ### Opção A: Host direto
-   pnpm dev   # http://localhost:3000
+   pnpm dev   # http://localhost:3001
 
 ### Opção B: Dev container (já de pé)
    # Se ainda não subiu:
@@ -552,7 +552,7 @@ Em AMBOS os casos, o loop de trabalho é idêntico:
 ## Loop de desenvolvimento (SEGUIR SEMPRE)
 
 1. Editar código
-2. Verificar no browser (http://localhost:3000) — hot reload automático
+2. Verificar no browser (http://localhost:3001) — hot reload automático
 3. Antes do commit: pnpm lint && pnpm exec tsc --noEmit
 4. git add -A && git commit -m "descrição"
 5. git push origin main

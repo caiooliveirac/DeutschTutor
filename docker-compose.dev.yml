@@ -10,7 +10,7 @@
 # Parar:  docker compose -f docker-compose.dev.yml down
 # Reset:  docker compose -f docker-compose.dev.yml down -v  (apaga node_modules do container)
 #
-# Acesso: http://localhost:3000
+# Acesso: http://localhost:3001
 
 services:
   dev:
@@ -24,7 +24,7 @@ services:
       - dev_next:/app/.next                 # Cache Turbopack (isolado do host)
       - ./data:/app/data                    # Banco SQLite
     ports:
-      - "3000:3000"
+      - "3001:3001"
     env_file: .env
     environment:
       - WATCHPACK_POLLING=true              # File watching em Docker macOS
