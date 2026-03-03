@@ -329,35 +329,79 @@ useEffect(() => {
 
 ## Docker — Desenvolvimento Local
 
-### Testar build completo (simula produção)
+### Duas opções de ambiente dev
+
+| | **Opção 1: Host direto** | **Opção 2: Dev Container** |
+|---|---|---|
+| **Como** | `pnpm dev` no terminal | `docker compose -f docker-compose.dev.yml up -d --build` |
+| **Hot reload** | ~100ms (nativo) | ~200-500ms (via bind mount) |
+| **Setup** | Node 20 + pnpm no host | Docker Desktop |
+| **Quando rebuildar** | Nunca | Só quando deps mudam |
+| **Melhor para** | Velocidade máxima | Paridade com produção Linux |
+
+Ambas são válidas. Escolha uma e **fique nela**.
+
+### Opção 1: Host direto (sem Docker)
 
 ```bash
-# Build sem fazer push (valida tudo)
+pnpm dev   # Hot reload instantâneo em http://localhost:3000
+```
+
+Requisitos: Node 20.x + pnpm 10.30.3 instalados no macOS.
+
+### Opção 2: Dev Container persistente
+
+Container sobe **UMA VEZ** e fica de pé. Código bind-mounted, hot reload automático. O agente nunca precisa rodar Docker novamente para mudanças de código.
+
+```bash
+# Primeiro uso (ou quando deps mudarem):
+docker compose -f docker-compose.dev.yml up -d --build
+
+# Pronto. Hot reload ativo em http://localhost:3000
+# Edite o código normalmente — as mudanças aparecem automaticamente.
+```
+
+**Como funciona:**
+- `Dockerfile.dev` instala deps com `better-sqlite3` compilado para Linux
+- Código-fonte: bind mount (`.:/app`) — edições no host aparecem no container
+- `node_modules`: named volume (`dev_node_modules`) — binários Linux isolados do macOS
+- `.next`: named volume (`dev_next`) — cache Turbopack isolado
+- `WATCHPACK_POLLING=true` — garante file watching funcionar via Docker macOS
+
+**Quando rebuildar (raro):**
+```bash
+# Só necessário se package.json ou pnpm-lock.yaml mudou
+docker compose -f docker-compose.dev.yml up -d --build
+```
+
+**Comandos úteis:**
+```bash
+docker compose -f docker-compose.dev.yml logs -f     # Ver logs
+docker compose -f docker-compose.dev.yml down         # Parar
+docker compose -f docker-compose.dev.yml down -v      # Reset total (apaga node_modules do container)
+```
+
+### Validar build de produção (ocasional)
+
+```bash
+# Testa se o Dockerfile de produção compila (sem subir)
 docker compose build
 
-# Rodar localmente (como produção)
+# Ou roda localmente como produção
 docker compose up -d
 # → http://localhost:8091/tutor/
 ```
 
-> Lembre: o Docker usa `NEXT_PUBLIC_BASE_PATH=/tutor`. Para dev normal, use `pnpm dev` sem Docker.
+> `docker-compose.yml` (produção) usa `NEXT_PUBLIC_BASE_PATH=/tutor` e rede `perguntas_default`. Não use para dev.
 
 ### Volume do banco de dados
 
-O `docker-compose.yml` monta `./data:/app/data`. Isso significa:
+Tanto o host quanto o dev container montam `./data:/app/data`:
 - O banco SQLite persiste no host em `./data/deutschtutor.db`
 - `docker compose down` **preserva** os dados
-- `docker compose down -v` **NÃO** afeta (não usa Docker volumes)
+- `docker compose -f docker-compose.dev.yml down` **preserva** os dados
+- `docker compose -f docker-compose.dev.yml down -v` apaga `node_modules` e `.next` do container, **mas preserva** `./data`
 - Deletar `./data/` manualmente **apaga** todos os dados
-
-### Rede Docker
-
-O `docker-compose.yml` usa `perguntas_default` (rede compartilhada com nginx no servidor). **No macOS local, ignore** — use `pnpm dev`.
-
-Se quiser testar Docker localmente, comente a seção `networks` ou crie a rede:
-```bash
-docker network create perguntas_default
-```
 
 ---
 
@@ -412,52 +456,54 @@ pnpm db:studio    # UI visual do Drizzle
 
 ## Fluxo de Trabalho Recomendado
 
+### Fluxo do agente (loop de dev)
+
 ```
-1. pnpm dev                        # Desenvolve com hot reload (~100ms)
-2. Testa manualmente               # http://localhost:3000
-3. pnpm lint && pnpm exec tsc --noEmit  # Valida antes do commit
+1. [fazer alterações no código]       # Editar normalmente
+2. Hot reload automático               # http://localhost:3000 (sem ação necessária)
+3. pnpm lint && pnpm exec tsc --noEmit # Validar antes do commit
 4. git add -A && git commit -m "..."
-5. git push origin main            # CI roda lint+typecheck
-6. CI passa → CD faz deploy automático no EC2
+5. git push origin main               # CI roda lint+typecheck → CD faz deploy
 ```
+
+> **O agente NÃO deve rodar nenhum comando Docker durante o loop de desenvolvimento.**
+> Hot reload já está funcionando (seja via `pnpm dev` no host ou via dev container).
 
 Se o CD falhar (docker build quebra), o container anterior continua rodando — sem downtime.
 
-### Validação de build Docker local (opcional, pré-push)
+### Validação de build de produção (raro, opcional)
 
 ```bash
-# Só buildar (valida que o Dockerfile compila)
-docker compose -f docker-compose.dev.yml build
-
-# Buildar E rodar localmente em modo produção
-docker compose -f docker-compose.dev.yml up -d
-# → http://localhost:3000 (sem basePath, diferente de produção que usa /tutor)
-
-# Parar
-docker compose -f docker-compose.dev.yml down
+docker compose build   # Testa se o Dockerfile de produção compila
 ```
 
-> **Quando usar:** Antes de pushes que alteram dependências, `next.config.ts`,
-> Dockerfile, ou qualquer coisa que possa quebrar o build Docker. Não é necessário
-> para mudanças de código normais — o CI + CD já validam tudo.
+> **Quando usar:** Só antes de pushes que alteram dependências, `next.config.ts` ou Dockerfile.
+> Mudanças de código normais NÃO precisam disso — o CI + CD já validam.
 
 ---
 
-## Por que NÃO usar Docker para dev ativo
+## Notas sobre Docker no dev
 
-1. **`better-sqlite3` é nativo** — compila binários diferentes para macOS arm64 vs Linux x64. Bind mount de `node_modules` entre host e container quebra.
-2. **macOS Docker bind mount é lento** — cada file change leva 2-5s para sincronizar vs ~100ms nativo. Turbopack precisa de filesystem rápido.
-3. **O Dockerfile é multi-stage otimizado para produção** (`output: "standalone"`) — não suporta hot reload.
-4. **`pnpm dev` é superior em tudo** — hot reload instantâneo, debug direto, sem overhead de container.
+### Por que `node_modules` é um named volume no dev container
 
-O `docker-compose.dev.yml` existe apenas para **validar o build de produção** localmente quando necessário.
+O `better-sqlite3` compila binários nativos diferentes para macOS ARM e Linux x64. Se o `node_modules` do host (macOS) fosse montado diretamente no container (Linux), os binários seriam incompatíveis. O named volume `dev_node_modules` garante que cada ambiente tem seus próprios binários.
+
+### Dev Container vs Host direto
+
+| Aspecto | Host (`pnpm dev`) | Dev Container |
+|---------|-------------------|---------------|
+| HMR | ~100ms (nativo) | ~200-500ms (bind mount) |
+| Setup | Node + pnpm no host | Docker Desktop |
+| Binários nativos | macOS ARM | Linux x64 (= produção) |
+| Docker commands | Nenhum | Apenas 1× no setup |
+
+Ambos funcionam. O importante é: **o agente não deve rodar Docker durante o loop de desenvolvimento**.
 
 ---
 
 ## Prompt para Agente de Dev Local (macOS)
 
-Copie este prompt **inteiro** para instruir o agente Opus no macOS.
-Ele contém tudo que o agente precisa saber para operar com segurança.
+Copie este prompt **inteiro** para instruir o agente no macOS.
 
 ---
 
@@ -470,44 +516,50 @@ Ele contém tudo que o agente precisa saber para operar com segurança.
 Você é um agente de desenvolvimento trabalhando no projeto DeutschTutor Pro.
 Antes de qualquer alteração, leia o arquivo DEV_GUIDE.md na raiz do projeto.
 
-## Setup Inicial (executar apenas uma vez)
+## Ambiente de desenvolvimento
 
-Se o projeto ainda não está configurado:
+O hot reload DEVE estar sempre ativo. Escolha UMA das opções abaixo (a que já estiver rodando):
 
-1. Verificar Node e pnpm:
-   node -v   # Deve ser 20.x
-   corepack enable && corepack prepare pnpm@10.30.3 --activate
+### Opção A: Host direto
+   pnpm dev   # http://localhost:3000
 
-2. Instalar dependências:
-   pnpm install
+### Opção B: Dev container (já de pé)
+   # Se ainda não subiu:
+   docker compose -f docker-compose.dev.yml up -d --build
+   # Depois disso: não toque mais em Docker. Hot reload automático.
 
-3. Criar .env na raiz (solicitar ao usuário as chaves necessárias):
-   ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_AI_KEY, XAI_API_KEY, DEEPSEEK_API_KEY
-   JWT_SECRET (string aleatória longa)
-   AUTH_USERS (formato: usuario:salt:hash)
+Em AMBOS os casos, o loop de trabalho é idêntico:
 
-4. Criar diretório de dados:
-   mkdir -p data
+## Loop de desenvolvimento (SEGUIR SEMPRE)
 
-5. Verificar que funciona:
-   pnpm dev   # Deve abrir em http://localhost:3000
+1. Editar código
+2. Verificar no browser (http://localhost:3000) — hot reload automático
+3. Antes do commit: pnpm lint && pnpm exec tsc --noEmit
+4. git add -A && git commit -m "descrição"
+5. git push origin main
+
+NUNCA rodar docker compose, docker build, ou qualquer comando Docker
+durante este loop. O hot reload já está funcionando.
 
 ## Após cada git pull
 
    pnpm install   # Atualiza deps se lockfile mudou
    mkdir -p data   # Garante diretório de dados
+   # Se usar dev container E deps mudaram:
+   # docker compose -f docker-compose.dev.yml up -d --build
 
-## Regras OBRIGATÓRIAS durante desenvolvimento
+## Regras OBRIGATÓRIAS
 
 ### Nunca fazer:
-- NÃO defina NEXT_PUBLIC_BASE_PATH no .env local (funciona sem, produção usa /tutor)
+- NÃO defina NEXT_PUBLIC_BASE_PATH no .env local (dev usa /, produção usa /tutor)
 - NÃO importe módulos Node.js (crypto, fs, path) em src/lib/auth.ts — é Edge Runtime
 - NÃO importe src/lib/auth.server.ts em arquivos que o middleware possa incluir
 - NÃO faça fetch("/api/...") sem usar apiUrl() — quebra em produção
 - NÃO use interfaces vazias (use type alias)
 - NÃO deixe imports não usados — o CI falha
-- NÃO rode pnpm build localmente sem mkdir -p data primeiro
-- NÃO faça docker compose up com o docker-compose.yml de produção localmente (rede perguntas_default não existe)
+- NÃO rode pnpm build sem mkdir -p data primeiro
+- NÃO rode docker compose up/build/restart durante o loop de dev
+- NÃO use o docker-compose.yml de produção localmente (rede perguntas_default não existe)
 
 ### Sempre fazer:
 - SEMPRE use apiUrl("/api/...") para fetch no frontend (import de @/lib/api)
@@ -527,23 +579,8 @@ Se o projeto ainda não está configurado:
 - Registrar em src/lib/ai/providers/registry.ts
 - Respostas DEVEM ser JSON puro — ver AGENT_RUNTIME_GUIDE.md para contratos
 
-## Workflow de desenvolvimento
-
-1. pnpm dev                                    # Hot reload ativo
-2. [fazer alterações]
-3. pnpm lint && pnpm exec tsc --noEmit         # Validar
-4. git add -A && git commit -m "descrição"
-5. git push origin main                        # CI valida, CD faz deploy
-
-## Se precisar validar build Docker:
-
-docker compose -f docker-compose.dev.yml build   # Testa build de produção
-docker compose -f docker-compose.dev.yml up -d    # Roda como produção local
-# Acesso: http://localhost:3000
-docker compose -f docker-compose.dev.yml down     # Para
-
 ## Documentação de referência:
-- DEV_GUIDE.md → Este guia (armadilhas, padrões, checklists)
+- DEV_GUIDE.md → Guia completo (armadilhas, padrões, checklists)
 - AGENT_RUNTIME_GUIDE.md → Contratos JSON dos endpoints de IA
 - AGENT_CONTENT_GUIDE.md → Conteúdo pedagógico (cenários, gramática, etc.)
 - DEPLOY.md → Deploy em produção (EC2/Docker)

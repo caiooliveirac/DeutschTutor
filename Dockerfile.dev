@@ -1,0 +1,22 @@
+# Dockerfile.dev — Dev container com hot reload
+#
+# NÃO é usado diretamente. Use via docker-compose.dev.yml.
+# Apenas instala deps (com better-sqlite3 compilado para Linux).
+# O código-fonte é bind-mounted em runtime.
+
+FROM node:20-alpine
+WORKDIR /app
+
+# better-sqlite3 precisa de build tools
+RUN apk add --no-cache python3 make g++
+
+RUN corepack enable && corepack prepare pnpm@10.30.3 --activate
+
+# Instalar dependências (preservadas no named volume dev_node_modules)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN sed -i '/- better-sqlite3/d' pnpm-workspace.yaml
+RUN pnpm install
+
+EXPOSE 3000
+
+CMD ["pnpm", "dev", "--hostname", "0.0.0.0"]
