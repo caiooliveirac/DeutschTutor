@@ -1,31 +1,30 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-alpine AS deps
+FROM node:20-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # better-sqlite3 tem binding nativo — precisa de build tools
 RUN apk add --no-cache python3 make g++
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN corepack enable && corepack prepare pnpm@latest --activate
-RUN pnpm install --frozen-lockfile
-
-
-FROM node:20-alpine AS builder
-WORKDIR /app
-ENV NEXT_TELEMETRY_DISABLED=1
-
 ARG NEXT_PUBLIC_BASE_PATH=/tutor
 ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
 
-# better-sqlite3 precisa de build tools no builder também (drizzle-kit gera SQL)
-RUN apk add --no-cache python3 make g++
+# Dummy key para o build passar (page data collection tenta importar o client).
+# A chave real é injetada em runtime via docker-compose.
+ENV ANTHROPIC_API_KEY=sk-ant-build-dummy
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN corepack enable && corepack prepare pnpm@latest --activate
+# Remove better-sqlite3 da lista ignoredBuiltDependencies para compilar o binding nativo
+RUN sed -i '/- better-sqlite3/d' pnpm-workspace.yaml
+RUN pnpm install --frozen-lockfile
+
+COPY . .
+# Re-apply sed pois COPY . . sobrescreve pnpm-workspace.yaml
+RUN sed -i '/- better-sqlite3/d' pnpm-workspace.yaml
+# pnpm rebuild não funciona com ignoredBuiltDependencies; usar npm rebuild direto
+RUN cd node_modules/.pnpm/better-sqlite3@12.6.2/node_modules/better-sqlite3 && npx --yes node-gyp rebuild
 RUN pnpm build
 
 

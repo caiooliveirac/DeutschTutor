@@ -1,4 +1,5 @@
 "use client";
+import { apiUrl } from "@/lib/api";
 
 import type { AnalysisResponse } from "@/lib/ai/parsers";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,7 @@ export function AnalysisPanel({ analysis, onClose }: AnalysisPanelProps) {
   const handleSaveErrors = async () => {
     if (savedErrors || !analysis.corrections.length) return;
     try {
-      await fetch("/api/persist", {
+      await fetch(apiUrl("/api/persist"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -50,7 +51,7 @@ export function AnalysisPanel({ analysis, onClose }: AnalysisPanelProps) {
     const v = analysis.vocabularyExpansion[index];
     if (!v || savedVocab.has(index)) return;
     try {
-      await fetch("/api/persist", {
+      await fetch(apiUrl("/api/persist"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

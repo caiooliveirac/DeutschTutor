@@ -1,4 +1,5 @@
 "use client";
+import { apiUrl } from "@/lib/api";
 
 import { useState, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
@@ -44,7 +45,7 @@ export default function GrammatikTopicPage({ params }: { params: Promise<{ topic
     setLoading(true);
     setLessonStarted(true);
     try {
-      const res = await fetch("/api/grammatik", {
+      const res = await fetch(apiUrl("/api/grammatik"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topicId }),

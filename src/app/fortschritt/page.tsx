@@ -1,4 +1,5 @@
 "use client";
+import { apiUrl } from "@/lib/api";
 
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -209,7 +210,7 @@ export default function FortschrittPage() {
 
   const loadStats = useCallback(async () => {
     try {
-      const res = await fetch("/api/stats");
+      const res = await fetch(apiUrl("/api/stats"));
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setStats(data);

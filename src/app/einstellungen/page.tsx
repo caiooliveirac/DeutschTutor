@@ -1,4 +1,5 @@
 "use client";
+import { apiUrl } from "@/lib/api";
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +23,7 @@ export default function EinstellungenPage() {
   const handleExport = async (format: "json" | "csv") => {
     setExporting(format);
     try {
-      const res = await fetch(`/api/export?format=${format}`);
+      const res = await fetch(apiUrl(`/api/export?format=${format}`));
       if (!res.ok) throw new Error("Export failed");
 
       const blob = await res.blob();

@@ -1,4 +1,5 @@
 "use client";
+import { apiUrl } from "@/lib/api";
 
 import { useState, useCallback, useEffect, useRef, use } from "react";
 import { useRouter } from "next/navigation";
@@ -85,7 +86,7 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
     setTimerActive(false);
 
     try {
-      const res = await fetch("/api/schreiben", {
+      const res = await fetch(apiUrl("/api/schreiben"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -102,7 +103,7 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
       setFeedback(data);
 
       // Persist the submission
-      fetch("/api/persist", {
+      fetch(apiUrl("/api/persist"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

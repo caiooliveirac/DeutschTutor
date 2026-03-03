@@ -1,4 +1,5 @@
 "use client";
+import { apiUrl } from "@/lib/api";
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -56,7 +57,7 @@ export default function ReviewPage() {
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/review");
+      const res = await fetch(apiUrl("/api/review"));
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setItems(data.items || []);
@@ -76,7 +77,7 @@ export default function ReviewPage() {
     setSubmitting(true);
 
     try {
-      await fetch("/api/review", {
+      await fetch(apiUrl("/api/review"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

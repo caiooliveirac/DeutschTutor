@@ -1,4 +1,5 @@
 "use client";
+import { apiUrl } from "@/lib/api";
 
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,7 +53,7 @@ export default function FehlertagebuchPage() {
 
   const loadErrors = useCallback(async () => {
     try {
-      const res = await fetch("/api/errors");
+      const res = await fetch(apiUrl("/api/errors"));
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setAllErrors(data.errors);
@@ -71,7 +72,7 @@ export default function FehlertagebuchPage() {
 
   const toggleResolved = async (id: number, currentResolved: boolean) => {
     try {
-      await fetch("/api/errors", {
+      await fetch(apiUrl("/api/errors"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, resolved: !currentResolved }),
@@ -87,7 +88,7 @@ export default function FehlertagebuchPage() {
 
   const addToReview = async (errorId: number) => {
     try {
-      await fetch("/api/errors", {
+      await fetch(apiUrl("/api/errors"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "addToReview", errorId }),

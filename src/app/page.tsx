@@ -1,4 +1,5 @@
 "use client";
+import { apiUrl } from "@/lib/api";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -69,7 +70,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/stats")
+    fetch(apiUrl("/api/stats"))
       .then((r) => r.json())
       .then(setStats)
       .catch(console.error)

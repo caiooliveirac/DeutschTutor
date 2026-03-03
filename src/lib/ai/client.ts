@@ -17,8 +17,8 @@ export { anthropic };
 /** High-quality model — used for Schreiben evaluation & Grammar lessons */
 export const MODEL = "claude-sonnet-4-20250514";
 
-/** Fast & cheap model — used for chat conversation & analysis (~20x cheaper output) */
-export const MODEL_FAST = "claude-haiku-3-5-20241022";
+/** Fast model — Haiku deprecated; using Sonnet 4 for all endpoints */
+export const MODEL_FAST = "claude-sonnet-4-20250514";
 
 /**
  * Classify an Anthropic SDK error into an HTTP status + user-friendly message.

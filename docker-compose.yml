@@ -10,6 +10,8 @@ services:
       - NODE_ENV=production
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH:-/tutor}
+      - JWT_SECRET=${JWT_SECRET}
+      - AUTH_USER=${AUTH_USER}
     volumes:
       - ./data:/app/data
     ports:

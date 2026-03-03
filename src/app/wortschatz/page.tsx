@@ -1,4 +1,5 @@
 "use client";
+import { apiUrl } from "@/lib/api";
 
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
@@ -50,7 +51,7 @@ export default function WortschatzPage() {
 
   // Fetch stats on mount
   useEffect(() => {
-    fetch("/api/stats")
+    fetch(apiUrl("/api/stats"))
       .then((r) => r.json())
       .then((d) => {
         setDueCount(d.dueReviews ?? 0);
@@ -63,7 +64,7 @@ export default function WortschatzPage() {
     setLoading(true);
     setSessionStarted(true);
     try {
-      const res = await fetch("/api/vocab", {
+      const res = await fetch(apiUrl("/api/vocab"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -126,7 +127,7 @@ export default function WortschatzPage() {
   useEffect(() => {
     if (!allDone || !data) return;
     // Track vocab reviewed
-    fetch("/api/persist", {
+    fetch(apiUrl("/api/persist"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "trackMessage" }), // counts as activity for streak
@@ -135,7 +136,7 @@ export default function WortschatzPage() {
     // Save each correct answer as vocab to SRS
     data.exercises.forEach((ex: VocabExercise, i: number) => {
       if (results[i]?.isCorrect) {
-        fetch("/api/persist", {
+        fetch(apiUrl("/api/persist"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

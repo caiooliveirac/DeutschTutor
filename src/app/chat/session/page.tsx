@@ -1,4 +1,5 @@
 "use client";
+import { apiUrl } from "@/lib/api";
 
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -41,7 +42,7 @@ function ChatSessionContent() {
 
   // Persist helpers — fire-and-forget
   const persist = (action: string, data: Record<string, unknown>) => {
-    fetch("/api/persist", {
+    fetch(apiUrl("/api/persist"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, ...data }),
@@ -59,7 +60,7 @@ function ChatSessionContent() {
     if (!sessionIdRef.current) {
       // Create session
       try {
-        const res = await fetch("/api/stats", {
+        const res = await fetch(apiUrl("/api/stats"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -80,7 +81,7 @@ function ChatSessionContent() {
     } else {
       // Update session
       try {
-        await fetch("/api/stats", {
+        await fetch(apiUrl("/api/stats"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -117,7 +118,7 @@ function ChatSessionContent() {
         content: m.role === "assistant" && m.parsed ? m.parsed.response : m.content,
       }));
 
-      const response = await fetch("/api/chat", {
+      const response = await fetch(apiUrl("/api/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -178,7 +179,7 @@ function ChatSessionContent() {
     setIsAnalyzing(messageId);
 
     try {
-      const response = await fetch("/api/analyze", {
+      const response = await fetch(apiUrl("/api/analyze"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
