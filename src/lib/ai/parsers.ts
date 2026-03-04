@@ -62,17 +62,23 @@ export function safeParseJSON<T>(text: string): T | null {
 
 /**
  * Attempt to repair truncated JSON by:
- * 1. Removing trailing incomplete values (strings, numbers mid-token)
- * 2. Closing any open arrays and objects
+ * 1. Removing trailing incomplete values (strings, numbers, keys mid-token)
+ * 2. Closing any open arrays and objects in the correct order
  */
 function repairTruncatedJSON(text: string): string | null {
-  // Remove trailing incomplete string value (open quote without close)
-  let t = text.replace(/,?\s*"[^"]*$/, ""); // remove trailing "incomplete string
-  t = t.replace(/,?\s*"[^"]*":\s*"[^"]*$/, ""); // remove trailing key: "incomplete value
+  // ── 1. Strip trailing incomplete tokens ──
+  // Order matters: try most specific patterns first.
+  let t = text;
+  // key: "incomplete value   → remove the whole key-value pair
+  t = t.replace(/,?\s*"[^"]*":\s*"[^"]*$/, "");
+  // key: incomplete_number   → remove trailing key with numeric/bool value in progress
+  t = t.replace(/,?\s*"[^"]*":\s*[\w.+-]*$/, "");
+  // "incomplete string       → remove trailing open string (no close quote)
+  t = t.replace(/,?\s*"[^"]*$/, "");
 
-  // Count open vs closed brackets
-  let openBraces = 0;
-  let openBrackets = 0;
+  // ── 2. Count nesting with string-awareness ──
+  // Track the bracket/brace stack to close in correct order.
+  const stack: ("}" | "]")[] = [];
   let inString = false;
   let escaped = false;
 
@@ -81,20 +87,18 @@ function repairTruncatedJSON(text: string): string | null {
     if (ch === "\\") { escaped = true; continue; }
     if (ch === '"') { inString = !inString; continue; }
     if (inString) continue;
-    if (ch === "{") openBraces++;
-    if (ch === "}") openBraces--;
-    if (ch === "[") openBrackets++;
-    if (ch === "]") openBrackets--;
+    if (ch === "{") stack.push("}");
+    else if (ch === "[") stack.push("]");
+    else if (ch === "}" || ch === "]") stack.pop();
   }
 
-  if (openBraces <= 0 && openBrackets <= 0) return null; // Already balanced or broken
+  if (stack.length === 0) return null; // Already balanced or broken
 
-  // Remove trailing comma before closing
+  // ── 3. Clean up trailing punctuation and close in reverse order ──
   t = t.replace(/,\s*$/, "");
 
-  // Close open brackets/braces
-  for (let i = 0; i < openBrackets; i++) t += "]";
-  for (let i = 0; i < openBraces; i++) t += "}";
+  // Close in reverse (innermost first)
+  while (stack.length > 0) t += stack.pop();
 
   return t;
 }

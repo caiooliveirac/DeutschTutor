@@ -54,7 +54,7 @@ const PROVIDER_CATALOG: ProviderConfig[] = [
     fastModel: "gemini-3-flash-preview",
     fastLabel: "Gemini 3 Flash",
     envVar: "GOOGLE_AI_KEY",
-    createQuality: () => new GoogleProvider("gemini-3.1-pro-preview", "Gemini 3.1 Pro", "premium"),
+    createQuality: () => new GoogleProvider("gemini-3.1-pro-preview", "Gemini 3.1 Pro", "premium", { thinking: true }),
     createFast: () => new GoogleProvider("gemini-3-flash-preview", "Gemini 3 Flash", "standard"),
   },
   {

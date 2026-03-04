@@ -14,14 +14,21 @@ export class GoogleProvider implements AIProvider {
   readonly tier: ProviderTier;
   readonly model: string;
   private client: GoogleGenAI;
+  /**
+   * If true, this model uses internal reasoning ("thinking") tokens that
+   * compete with maxOutputTokens. We cap the thinking budget so the actual
+   * JSON output is not truncated.
+   */
+  private isThinking: boolean;
 
-  constructor(model: string, name: string, tier: ProviderTier) {
+  constructor(model: string, name: string, tier: ProviderTier, opts?: { thinking?: boolean }) {
     const apiKey = process.env.GOOGLE_AI_KEY;
     if (!apiKey) throw new Error("GOOGLE_AI_KEY env var is required");
 
     this.model = model;
     this.name = name;
     this.tier = tier;
+    this.isThinking = opts?.thinking ?? false;
     this.client = new GoogleGenAI({ apiKey });
   }
 
@@ -41,13 +48,26 @@ export class GoogleProvider implements AIProvider {
       ? Math.min(params.temperature, 2)
       : undefined;
 
+    // For thinking models (e.g. Gemini 3.1 Pro), internal reasoning tokens
+    // compete with maxOutputTokens. We request more tokens and cap thinking
+    // so the actual text output has enough room.
+    const thinkingConfig = this.isThinking
+      ? {
+          thinkingConfig: {
+            thinkingBudget: Math.min(2048, params.maxTokens),
+          },
+          // Ensure the total budget covers thinking + output
+          maxOutputTokens: params.maxTokens + 2048,
+        }
+      : { maxOutputTokens: params.maxTokens };
+
     try {
       const response = await this.client.models.generateContent({
         model: this.model,
         contents,
         config: {
           systemInstruction: params.systemPrompt,
-          maxOutputTokens: params.maxTokens,
+          ...thinkingConfig,
           abortSignal: controller.signal,
           ...(temperature != null ? { temperature } : {}),
         },
