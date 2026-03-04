@@ -71,6 +71,91 @@ export function getActiveCooldowns(): Record<string, { until: number; reason: st
   return result;
 }
 
+// ── TPM (Tokens Per Minute) guard ──
+// Estimates token usage per provider on a rolling 60-second window.
+// When usage approaches the provider's TPM limit, proactively routes
+// to a fallback BEFORE hitting a 429 — preventing wasted latency.
+// Override limits via env: GOOGLE_TPM_LIMIT=1000000
+
+interface TPMRecord {
+  tokens: number;
+  ts: number;
+}
+
+const tpmLedger = new Map<string, TPMRecord[]>();
+
+/**
+ * Get TPM limit for a provider.
+ * Check env first (e.g., GOOGLE_TPM_LIMIT=1000000), then fall back to defaults.
+ */
+function getTPMLimit(providerId: string): number | null {
+  const envVal = process.env[`${providerId.toUpperCase()}_TPM_LIMIT`];
+  if (envVal) {
+    const parsed = parseInt(envVal, 10);
+    if (parsed > 0) return parsed;
+  }
+  // Conservative defaults — only providers with known tight free-tier limits.
+  // Google: Flash ~1M TPM, Pro ~32K on free tier. 250K is a safe middle ground.
+  // Paid plans: set GOOGLE_TPM_LIMIT=4000000 in .env
+  const defaults: Record<string, number> = {
+    google: 250_000,
+  };
+  return defaults[providerId] ?? null;
+}
+
+/** Estimate input tokens from prompt + messages (~3.5 chars/token for DE/PT) */
+function estimateInputTokens(params: ChatParams): number {
+  const chars = params.systemPrompt.length +
+    params.messages.reduce((sum, m) => sum + m.content.length, 0);
+  return Math.ceil(chars / 3.5);
+}
+
+/** Estimate total tokens: input + expected output (~60% of maxTokens budget) */
+function estimateRequestTokens(params: ChatParams): number {
+  return estimateInputTokens(params) + Math.ceil(params.maxTokens * 0.6);
+}
+
+/** Record actual token usage after a successful response */
+function recordTokenUsage(providerId: string, inputTokens: number, outputText: string): void {
+  const outputTokens = Math.ceil(outputText.length / 3.5);
+  const now = Date.now();
+  const records = (tpmLedger.get(providerId) ?? []).filter(r => now - r.ts < 60_000);
+  records.push({ tokens: inputTokens + outputTokens, ts: now });
+  tpmLedger.set(providerId, records);
+}
+
+/** Get rolling TPM for a provider */
+function currentTPM(providerId: string): number {
+  const now = Date.now();
+  return (tpmLedger.get(providerId) ?? [])
+    .filter(r => now - r.ts < 60_000)
+    .reduce((sum, r) => sum + r.tokens, 0);
+}
+
+/** Check if adding tokens would exceed 80% of the provider's TPM limit */
+function wouldExceedTPM(providerId: string, estimatedTokens: number): boolean {
+  const limit = getTPMLimit(providerId);
+  if (!limit) return false;
+  const current = currentTPM(providerId);
+  if (current + estimatedTokens > limit * 0.8) {
+    console.warn(
+      `[tpm] ${providerId}: ${current}+${estimatedTokens}=${current + estimatedTokens} ` +
+      `would exceed 80% of ${limit} TPM limit. Pre-emptive skip.`
+    );
+    return true;
+  }
+  return false;
+}
+
+/** Exposed for diagnostics: current TPM usage per provider */
+export function getActiveTPM(): Record<string, { current: number; limit: number | null }> {
+  const result: Record<string, { current: number; limit: number | null }> = {};
+  for (const id of tpmLedger.keys()) {
+    result[id] = { current: currentTPM(id), limit: getTPMLimit(id) };
+  }
+  return result;
+}
+
 // ── Main interface ──
 
 export interface ResilientChatResult {
@@ -100,6 +185,15 @@ export async function chatWithFallback(
   const primary = getProvider(providerId);
   const primaryConfig = getProviderConfig(primary.id);
   const primaryCostRank = primaryConfig?.costRank ?? 5;
+  const estimatedTokens = estimateRequestTokens(params);
+  const inputTokens = estimateInputTokens(params);
+
+  // ── 0. Pre-flight TPM check ──
+  if (wouldExceedTPM(primary.id, estimatedTokens)) {
+    const fallbackResult = await tryFallbacks(primary.id, primaryCostRank, tier, params, getProvider);
+    if (fallbackResult) return fallbackResult;
+    console.warn(`[resilience] No fallback for TPM limit, proceeding with ${primary.id}`);
+  }
 
   // ── 1. Check if primary is in cooldown ──
   if (isInCooldown(primary.id)) {
@@ -113,6 +207,7 @@ export async function chatWithFallback(
   // ── 2. Try primary provider ──
   const primaryResult = await tryProvider(primary, params);
   if (primaryResult.ok) {
+    recordTokenUsage(primary.id, inputTokens, primaryResult.text);
     return { text: primaryResult.text, providerName: primary.name, wasFallback: false };
   }
 
@@ -150,6 +245,7 @@ export async function chatWithFallback(
   if (retryResult.ok) {
     // It worked on retry — clear cooldown
     providerCooldowns.delete(primary.id);
+    recordTokenUsage(primary.id, inputTokens, retryResult.text);
     return { text: retryResult.text, providerName: primary.name, wasFallback: false };
   }
 
@@ -169,7 +265,7 @@ export async function chatWithFallback(
 
 /**
  * Try fallback providers: only same-or-cheaper cost, not in cooldown,
- * sorted cheapest-first, and stop after FIRST success.
+ * not exceeding TPM, sorted cheapest-first. Tries up to 2 candidates.
  */
 async function tryFallbacks(
   primaryId: string,
@@ -179,44 +275,55 @@ async function tryFallbacks(
   getProvider: (id?: string) => AIProvider,
 ): Promise<ResilientChatResult | null> {
   const available = getAvailableProviders();
+  const estimated = estimateRequestTokens(params);
+  const inputTokens = estimateInputTokens(params);
 
-  // Filter: not the primary, not in cooldown, costRank <= primary's
+  // Filter: not primary, not in cooldown, costRank <= primary's, TPM OK
   const candidates = available
-    .filter((c) => c.id !== primaryId && !isInCooldown(c.id) && c.costRank <= primaryCostRank)
+    .filter((c) =>
+      c.id !== primaryId &&
+      !isInCooldown(c.id) &&
+      c.costRank <= primaryCostRank &&
+      !wouldExceedTPM(c.id, estimated)
+    )
     .sort((a, b) => a.costRank - b.costRank); // cheapest first
 
   if (candidates.length === 0) {
-    console.warn(`[resilience] No fallback candidates (costRank <= ${primaryCostRank}, not in cooldown)`);
+    console.warn(
+      `[resilience] No fallback candidates (costRank <= ${primaryCostRank}, not in cooldown, TPM OK)`
+    );
     return null;
   }
 
-  // Try only the first (cheapest) candidate to avoid burning through all providers
-  const candidate = candidates[0];
-  try {
-    const fb = getProvider(candidate.id);
-    console.warn(
-      `[resilience] Trying fallback: ${fb.id}/${fb.model} (costRank=${candidate.costRank})`
-    );
+  // Try up to 2 cheapest candidates
+  for (const candidate of candidates.slice(0, 2)) {
+    try {
+      const fb = getProvider(candidate.id);
+      console.warn(
+        `[resilience] Trying fallback: ${fb.id}/${fb.model} (costRank=${candidate.costRank})`
+      );
 
-    const fbResult = await tryProvider(fb, params);
-    if (fbResult.ok) {
-      console.info(`[resilience] Fallback ${fb.id} succeeded.`);
-      return {
-        text: fbResult.text,
-        providerName: fb.name,
-        wasFallback: true,
-        fallbackReason: `${primaryId} indisponível temporariamente`,
-      };
-    }
+      const fbResult = await tryProvider(fb, params);
+      if (fbResult.ok) {
+        console.info(`[resilience] Fallback ${fb.id} succeeded.`);
+        recordTokenUsage(fb.id, inputTokens, fbResult.text);
+        return {
+          text: fbResult.text,
+          providerName: fb.name,
+          wasFallback: true,
+          fallbackReason: `${primaryId} indisponível temporariamente`,
+        };
+      }
 
-    // Fallback also failed — set cooldown on it too
-    const fbClassified = classifyProviderError(fbResult.error);
-    if (isRetryableStatus(fbClassified.status)) {
-      setCooldown(fb.id, fbClassified.status, fbClassified.message);
+      // Fallback also failed — set cooldown on it too
+      const fbClassified = classifyProviderError(fbResult.error);
+      if (isRetryableStatus(fbClassified.status)) {
+        setCooldown(fb.id, fbClassified.status, fbClassified.message);
+      }
+      console.warn(`[resilience] Fallback ${fb.id} also failed: ${fbClassified.message}`);
+    } catch (fbError) {
+      console.warn(`[resilience] Fallback ${candidate.id} threw: ${(fbError as Error).message}`);
     }
-    console.warn(`[resilience] Fallback ${fb.id} also failed: ${fbClassified.message}`);
-  } catch (fbError) {
-    console.warn(`[resilience] Fallback ${candidate.id} threw: ${(fbError as Error).message}`);
   }
 
   return null;

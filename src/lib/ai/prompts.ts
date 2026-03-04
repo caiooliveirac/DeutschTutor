@@ -184,7 +184,7 @@ Responda APENAS em JSON (sem markdown):
 }
 
 
-// ── Grammar Exercise Generator (QUALITY · max_tokens: 3500) ──
+// ── Grammar Exercise Generator (QUALITY · max_tokens: 4000 · temp: 0.7) ──
 // NOTE: Grammar THEORY is now static (src/lib/grammar-lessons.ts).
 //       This prompt generates ONLY exercises, called on-demand per student.
 export function getGrammatikExercisePrompt(
