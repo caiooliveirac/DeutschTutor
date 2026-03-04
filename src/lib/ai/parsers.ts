@@ -120,6 +120,15 @@ function bool(v: unknown, fallback = false): boolean {
 
 // ── Response Types ──
 
+/** Metadata about which AI provider served the response. Injected by API routes. */
+export interface ProviderMeta {
+  _provider: string;       // Human-friendly name: "Gemini 3 Flash"
+  _model: string;          // provider/model: "google/gemini-3-flash-preview"
+  _wasFallback: boolean;
+  _fallbackReason?: string;
+  _durationMs: number;
+}
+
 export interface ConversationResponse {
   response: string;
   translation: string;

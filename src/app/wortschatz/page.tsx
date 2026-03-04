@@ -6,7 +6,8 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { VocabResponse, VocabExercise } from "@/lib/ai/parsers";
+import type { VocabResponse, VocabExercise, ProviderMeta } from "@/lib/ai/parsers";
+import { AIProviderTag } from "@/components/AIProviderTag";
 import {
   Library,
   Loader2,
@@ -44,6 +45,7 @@ export default function WortschatzPage() {
   const { selected: providerId } = useProvider();
   const { level } = useLevel();
   const [data, setData] = useState<VocabResponse | null>(null);
+  const [providerMeta, setProviderMeta] = useState<Partial<ProviderMeta> | null>(null);
   const [loading, setLoading] = useState(false);
   const [currentExercise, setCurrentExercise] = useState(0);
   const [results, setResults] = useState<ExerciseResult[]>([]);
@@ -86,6 +88,13 @@ export default function WortschatzPage() {
       }
       const json = await res.json();
       setData(json as VocabResponse);
+      setProviderMeta({
+        _provider: json._provider,
+        _model: json._model,
+        _wasFallback: json._wasFallback,
+        _fallbackReason: json._fallbackReason,
+        _durationMs: json._durationMs,
+      });
       setResults((json as VocabResponse).exercises.map(() => ({ userAnswer: "", isCorrect: false, revealed: false })));
       setCurrentExercise(0);
       setShowAnswer(false);
@@ -254,6 +263,7 @@ export default function WortschatzPage() {
           <CardContent className="p-8 text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary mb-3" />
             <p className="text-sm text-muted-foreground">Gerando exercícios personalizados...</p>
+            <AIProviderTag meta={providerMeta} />
           </CardContent>
         </Card>
       )}
@@ -291,6 +301,7 @@ export default function WortschatzPage() {
                   🎯 {currentTheme.wortfeld}
                 </Badge>
                 <span className="text-xs text-muted-foreground">({currentTheme.label})</span>
+                <AIProviderTag meta={providerMeta} />
               </div>
             )}
             <div className="flex items-center gap-3">

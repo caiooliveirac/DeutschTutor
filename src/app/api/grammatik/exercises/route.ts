@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     const systemPrompt = getGrammatikExercisePrompt(topic, level, errorPatterns);
 
-    const { text, providerName } = await chatWithFallback(providerId, "quality", {
+    const result = await chatWithFallback(providerId, "quality", {
       systemPrompt,
       messages: [
         {
@@ -54,16 +54,24 @@ export async function POST(request: NextRequest) {
       temperature: 0.7, // Varied exercises but grammatically sound
     });
 
-    const raw = safeParseJSON<Record<string, unknown>>(text);
+    const meta = {
+      _provider: result.providerName,
+      _model: result.providerModel,
+      _wasFallback: result.wasFallback,
+      _fallbackReason: result.fallbackReason,
+      _durationMs: result.durationMs,
+    };
+
+    const raw = safeParseJSON<Record<string, unknown>>(result.text);
 
     if (raw) {
       const parsed = sanitizeGrammatikExercises(raw);
-      return NextResponse.json({ ...parsed, _provider: providerName });
+      return NextResponse.json({ ...parsed, ...meta });
     }
 
     console.error(
-      `[grammatik/exercises] safeParseJSON returned null. Provider: ${providerName}. ` +
-        `Raw (${text.length} chars): ${text.slice(0, 500)}`,
+      `[grammatik/exercises] safeParseJSON returned null. Provider: ${result.providerName}. ` +
+        `Raw (${result.text.length} chars): ${result.text.slice(0, 500)}`,
     );
     return NextResponse.json(
       { error: "Falha ao gerar exercícios. Tente novamente." },

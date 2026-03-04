@@ -9,7 +9,7 @@ import { AnalysisPanel } from "@/components/chat/AnalysisPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getScenarioById } from "@/lib/scenarios";
-import type { ConversationResponse, AnalysisResponse } from "@/lib/ai/parsers";
+import type { ConversationResponse, AnalysisResponse, ProviderMeta } from "@/lib/ai/parsers";
 import { Loader2, PanelRightOpen, PanelRightClose, AlertCircle, RotateCcw } from "lucide-react";
 import { useProvider } from "@/components/ProviderContext";
 import { ProviderBadge } from "@/components/ProviderPicker";
@@ -22,6 +22,7 @@ interface Message {
   content: string;
   parsed?: ConversationResponse | null;
   analysis?: AnalysisResponse | null;
+  providerMeta?: Partial<ProviderMeta> | null;
   /** If true, this is an error placeholder (not a real AI response) */
   isError?: boolean;
   /** Stash the user text so we can retry on error */
@@ -147,13 +148,20 @@ function ChatSessionContent() {
         throw new Error(errMsg);
       }
 
-      const parsed = (await response.json()) as ConversationResponse;
+      const parsed = (await response.json()) as ConversationResponse & Partial<ProviderMeta>;
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content: parsed.response,
         parsed,
+        providerMeta: {
+          _provider: parsed._provider,
+          _model: parsed._model,
+          _wasFallback: parsed._wasFallback,
+          _fallbackReason: parsed._fallbackReason,
+          _durationMs: parsed._durationMs,
+        },
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -391,6 +399,7 @@ function ChatSessionContent() {
                 role={msg.role}
                 content={msg.content}
                 parsed={msg.parsed}
+                providerMeta={msg.providerMeta}
                 onAnalyze={
                   msg.role === "user"
                     ? () => handleAnalyzeClick(msg.id, msg.content)

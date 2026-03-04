@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       sessionSeed,
     });
 
-    const { text, providerName } = await chatWithFallback(providerId, "fast", {
+    const result = await chatWithFallback(providerId, "fast", {
       systemPrompt,
       messages: [
         {
@@ -71,20 +71,28 @@ export async function POST(request: NextRequest) {
       temperature: 0.9,
     });
 
-    const raw = safeParseJSON<Record<string, unknown>>(text);
+    const meta = {
+      _provider: result.providerName,
+      _model: result.providerModel,
+      _wasFallback: result.wasFallback,
+      _fallbackReason: result.fallbackReason,
+      _durationMs: result.durationMs,
+    };
+
+    const raw = safeParseJSON<Record<string, unknown>>(result.text);
 
     if (raw) {
       const parsed = sanitizeVocab(raw);
       return NextResponse.json({
         ...parsed,
-        _provider: providerName,
+        ...meta,
         _theme: { id: theme.id, label: theme.label, wortfeld: theme.wortfeld },
       });
     }
 
     console.error(
-      `[vocab] safeParseJSON returned null. Provider: ${providerName}. ` +
-      `Raw (${text.length} chars): ${text.slice(0, 500)}`
+      `[vocab] safeParseJSON returned null. Provider: ${result.providerName}. ` +
+      `Raw (${result.text.length} chars): ${result.text.slice(0, 500)}`
     );
     return NextResponse.json(
       { error: "Falha ao gerar exercícios. Tente novamente." },

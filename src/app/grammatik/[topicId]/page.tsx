@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getGrammarTopicById } from "@/lib/grammar-topics";
 import { getStaticLesson } from "@/lib/grammar-lessons";
-import type { GrammatikExerciseItem } from "@/lib/ai/parsers";
+import type { GrammatikExerciseItem, ProviderMeta } from "@/lib/ai/parsers";
+import { AIProviderTag } from "@/components/AIProviderTag";
 import {
   ArrowLeft,
   Loader2,
@@ -74,6 +75,7 @@ export default function GrammatikTopicPage({ params }: { params: Promise<{ topic
   const staticLesson = useMemo(() => getStaticLesson(topicId), [topicId]);
 
   const [exercises, setExercises] = useState<GrammatikExerciseItem[]>([]);
+  const [providerMeta, setProviderMeta] = useState<Partial<ProviderMeta> | null>(null);
   const [results, setResults] = useState<ExerciseResult[]>([]);
   const [currentExercise, setCurrentExercise] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -108,6 +110,13 @@ export default function GrammatikTopicPage({ params }: { params: Promise<{ topic
       const data = await res.json();
       const exs: GrammatikExerciseItem[] = data.exercises ?? [];
       setExercises(exs);
+      setProviderMeta({
+        _provider: data._provider,
+        _model: data._model,
+        _wasFallback: data._wasFallback,
+        _fallbackReason: data._fallbackReason,
+        _durationMs: data._durationMs,
+      });
       setResults(exs.map(() => ({ userAnswer: "", isCorrect: false, revealed: false })));
     } catch (err) {
       console.error("Load exercises error:", err);
@@ -333,6 +342,7 @@ export default function GrammatikTopicPage({ params }: { params: Promise<{ topic
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground">Exercícios:</span>
+              <AIProviderTag meta={providerMeta} />
               <div className="flex gap-1.5 flex-1">
                 {exercises.map((_, i) => (
                   <div

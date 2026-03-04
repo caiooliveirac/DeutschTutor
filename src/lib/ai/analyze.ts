@@ -1,6 +1,6 @@
 import { chatWithFallback } from "./resilience";
 import { getAnalysisPrompt } from "./prompts";
-import { safeParseJSON, getDefaultAnalysis, sanitizeAnalysis, type AnalysisResponse } from "./parsers";
+import { safeParseJSON, getDefaultAnalysis, sanitizeAnalysis, type AnalysisResponse, type ProviderMeta } from "./parsers";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -12,7 +12,7 @@ export async function analyzeMessage(
   conversationContext: ChatMessage[],
   level: string = "B1",
   providerId?: string,
-): Promise<AnalysisResponse> {
+): Promise<AnalysisResponse & Partial<ProviderMeta>> {
   const systemPrompt = getAnalysisPrompt(level);
 
   const contextSummary =
@@ -24,7 +24,7 @@ export async function analyzeMessage(
       : "";
 
   try {
-    const { text, providerName } = await chatWithFallback(providerId, "fast", {
+    const result = await chatWithFallback(providerId, "fast", {
       systemPrompt,
       messages: [
         {
@@ -36,18 +36,26 @@ export async function analyzeMessage(
       temperature: 0.3, // Deterministic analysis — consistency matters
     });
 
-    const raw = safeParseJSON<Record<string, unknown>>(text);
+    const meta: ProviderMeta = {
+      _provider: result.providerName,
+      _model: result.providerModel,
+      _wasFallback: result.wasFallback,
+      _fallbackReason: result.fallbackReason,
+      _durationMs: result.durationMs,
+    };
+
+    const raw = safeParseJSON<Record<string, unknown>>(result.text);
 
     if (raw) {
-      return sanitizeAnalysis(raw, userMessage);
+      return { ...sanitizeAnalysis(raw, userMessage), ...meta };
     }
 
     // Parse failed — log raw text for debugging (truncate to 500 chars)
     console.error(
-      `[analyze] safeParseJSON returned null. Provider: ${providerName}. ` +
-      `Raw text (${text.length} chars): ${text.slice(0, 500)}${text.length > 500 ? '...' : ''}`
+      `[analyze] safeParseJSON returned null. Provider: ${result.providerName}. ` +
+      `Raw text (${result.text.length} chars): ${result.text.slice(0, 500)}${result.text.length > 500 ? '...' : ''}`
     );
-    return getDefaultAnalysis(userMessage);
+    return { ...getDefaultAnalysis(userMessage), ...meta };
   } catch (error) {
     console.error("Analysis error:", error);
     return getDefaultAnalysis(userMessage);

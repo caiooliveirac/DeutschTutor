@@ -163,14 +163,32 @@ export interface ResilientChatResult {
   text: string;
   /** Human-friendly provider name */
   providerName: string;
+  /** provider/model identifier (e.g., "google/gemini-3-flash-preview") */
+  providerModel: string;
   /** Whether a fallback provider was used instead of the requested one */
   wasFallback: boolean;
   /** If fallback was used, explain why */
   fallbackReason?: string;
+  /** Chain of providers attempted (for diagnostics) */
+  attempts: AttemptRecord[];
+  /** Total wall-clock time in ms */
+  durationMs: number;
+}
+
+export interface AttemptRecord {
+  provider: string;
+  model: string;
+  status: "ok" | "error";
+  error?: string;
+  durationMs: number;
 }
 
 /**
  * Send a chat completion with smart retry + cost-conscious fallback.
+ *
+ * Every call produces a single structured log line like:
+ *   [ai] ✓ google/gemini-3-flash (1.2s) | maxTok=1500
+ *   [ai] ✗ google/gemini-3.1-pro (429 TPM) → ✓ deepseek/deepseek-chat (3.1s) | maxTok=6000
  *
  * @param providerId - User's preferred provider ID (e.g., "google")
  * @param tier       - "quality" or "fast"
@@ -181,53 +199,76 @@ export async function chatWithFallback(
   tier: "quality" | "fast",
   params: ChatParams,
 ): Promise<ResilientChatResult> {
+  const t0 = Date.now();
   const getProvider = tier === "quality" ? getQualityProvider : getFastProvider;
   const primary = getProvider(providerId);
   const primaryConfig = getProviderConfig(primary.id);
   const primaryCostRank = primaryConfig?.costRank ?? 5;
   const estimatedTokens = estimateRequestTokens(params);
   const inputTokens = estimateInputTokens(params);
+  const attempts: AttemptRecord[] = [];
+
+  function buildResult(text: string, provider: AIProvider, wasFallback: boolean, fallbackReason?: string): ResilientChatResult {
+    const durationMs = Date.now() - t0;
+    const result: ResilientChatResult = {
+      text,
+      providerName: provider.name,
+      providerModel: `${provider.id}/${provider.model}`,
+      wasFallback,
+      fallbackReason,
+      attempts,
+      durationMs,
+    };
+    // Structured log — single line per AI call
+    const chain = attempts.map(a =>
+      a.status === "ok"
+        ? `✓ ${a.provider}/${a.model} (${(a.durationMs / 1000).toFixed(1)}s)`
+        : `✗ ${a.provider}/${a.model} (${a.error})`
+    ).join(" → ");
+    console.info(`[ai] ${chain} | maxTok=${params.maxTokens} total=${(durationMs / 1000).toFixed(1)}s`);
+    return result;
+  }
 
   // ── 0. Pre-flight TPM check ──
   if (wouldExceedTPM(primary.id, estimatedTokens)) {
-    const fallbackResult = await tryFallbacks(primary.id, primaryCostRank, tier, params, getProvider);
-    if (fallbackResult) return fallbackResult;
-    console.warn(`[resilience] No fallback for TPM limit, proceeding with ${primary.id}`);
+    attempts.push({ provider: primary.id, model: primary.model, status: "error", error: "TPM limit", durationMs: 0 });
+    const fallbackResult = await tryFallbacksTracked(primary.id, primaryCostRank, tier, params, getProvider, attempts, inputTokens);
+    if (fallbackResult) return buildResult(fallbackResult.text, { id: fallbackResult.providerId, model: fallbackResult.model, name: fallbackResult.providerName } as AIProvider, true, `${primary.id} TPM limit`);
+    console.warn(`[ai] No fallback for TPM limit, proceeding with ${primary.id}`);
   }
 
   // ── 1. Check if primary is in cooldown ──
   if (isInCooldown(primary.id)) {
-    console.warn(`[resilience] ${primary.id} is in cooldown, skipping to fallback`);
-    // Go straight to fallback
-    const fallbackResult = await tryFallbacks(primary.id, primaryCostRank, tier, params, getProvider);
-    if (fallbackResult) return fallbackResult;
+    attempts.push({ provider: primary.id, model: primary.model, status: "error", error: "cooldown", durationMs: 0 });
+    const fallbackResult = await tryFallbacksTracked(primary.id, primaryCostRank, tier, params, getProvider, attempts, inputTokens);
+    if (fallbackResult) return buildResult(fallbackResult.text, { id: fallbackResult.providerId, model: fallbackResult.model, name: fallbackResult.providerName } as AIProvider, true, `${primary.id} em cooldown`);
     // No fallback available — try primary anyway (cooldown is advisory)
   }
 
   // ── 2. Try primary provider ──
+  const t1 = Date.now();
   const primaryResult = await tryProvider(primary, params);
+  const d1 = Date.now() - t1;
   if (primaryResult.ok) {
+    attempts.push({ provider: primary.id, model: primary.model, status: "ok", durationMs: d1 });
     recordTokenUsage(primary.id, inputTokens, primaryResult.text);
-    return { text: primaryResult.text, providerName: primary.name, wasFallback: false };
+    return buildResult(primaryResult.text, primary, false);
   }
 
   // ── 3. Classify the error ──
   const classified = classifyProviderError(primaryResult.error);
+  attempts.push({ provider: primary.id, model: primary.model, status: "error", error: `${classified.status} ${classified.message.slice(0, 60)}`, durationMs: d1 });
 
-  // Non-retryable AND non-fallbackable: fail immediately (e.g., 402 billing, 451 safety).
-  // 400 errors: skip retry (same params will fail) but DO try fallback — a different
-  // provider may handle the same request fine (e.g., parameter compatibility differences).
+  // 400 errors: skip retry, try fallback
   if (classified.status === 400) {
-    console.warn(
-      `[resilience] ${primary.id}/${primary.model} → 400: ${classified.message}. ` +
-      `Skipping retry, trying fallback...`
-    );
-    const fallbackResult = await tryFallbacks(primary.id, primaryCostRank, tier, params, getProvider);
-    if (fallbackResult) return fallbackResult;
+    const fallbackResult = await tryFallbacksTracked(primary.id, primaryCostRank, tier, params, getProvider, attempts, inputTokens);
+    if (fallbackResult) return buildResult(fallbackResult.text, { id: fallbackResult.providerId, model: fallbackResult.model, name: fallbackResult.providerName } as AIProvider, true, `${primary.id} → 400`);
+    logChainFailure(attempts, params);
     throw primaryResult.error;
   }
 
   if (!isRetryableStatus(classified.status)) {
+    logChainFailure(attempts, params);
     throw primaryResult.error;
   }
 
@@ -235,48 +276,57 @@ export async function chatWithFallback(
   setCooldown(primary.id, classified.status, classified.message);
 
   // ── 4. Retry primary once after short delay ──
-  console.warn(
-    `[resilience] ${primary.id}/${primary.model} → ${classified.status}: ${classified.message}. ` +
-    `Retrying in ${RETRY_DELAY_MS}ms...`
-  );
   await sleep(RETRY_DELAY_MS);
 
+  const t2 = Date.now();
   const retryResult = await tryProvider(primary, params);
+  const d2 = Date.now() - t2;
   if (retryResult.ok) {
-    // It worked on retry — clear cooldown
+    attempts.push({ provider: primary.id, model: primary.model, status: "ok", durationMs: d2 });
     providerCooldowns.delete(primary.id);
     recordTokenUsage(primary.id, inputTokens, retryResult.text);
-    return { text: retryResult.text, providerName: primary.name, wasFallback: false };
+    return buildResult(retryResult.text, primary, false);
   }
+  const retryClassified = classifyProviderError(retryResult.error);
+  attempts.push({ provider: primary.id, model: primary.model, status: "error", error: `retry ${retryClassified.status}`, durationMs: d2 });
 
-  // ── 5. Try ONE fallback (cost-aware, cheapest-first) ──
-  const fallbackResult = await tryFallbacks(primary.id, primaryCostRank, tier, params, getProvider);
-  if (fallbackResult) return fallbackResult;
+  // ── 5. Try fallback (cost-aware, cheapest-first) ──
+  const fallbackResult = await tryFallbacksTracked(primary.id, primaryCostRank, tier, params, getProvider, attempts, inputTokens);
+  if (fallbackResult) return buildResult(fallbackResult.text, { id: fallbackResult.providerId, model: fallbackResult.model, name: fallbackResult.providerName } as AIProvider, true, `${primary.id} falhou após retry`);
 
   // ── 6. All options exhausted ──
-  console.error(
-    `[resilience] All options exhausted for ${primary.id}. ` +
-    `No available fallback with costRank <= ${primaryCostRank}.`
-  );
+  logChainFailure(attempts, params);
   throw primaryResult.error;
+}
+
+function logChainFailure(attempts: AttemptRecord[], params: ChatParams): void {
+  const chain = attempts.map(a => `✗ ${a.provider}/${a.model} (${a.error})`).join(" → ");
+  console.error(`[ai] FAIL ${chain} | maxTok=${params.maxTokens}`);
 }
 
 // ── Internal helpers ──
 
+interface FallbackSuccess {
+  text: string;
+  providerId: string;
+  model: string;
+  providerName: string;
+}
+
 /**
- * Try fallback providers: only same-or-cheaper cost, not in cooldown,
- * not exceeding TPM, sorted cheapest-first. Tries up to 2 candidates.
+ * Try fallback providers with attempt tracking.
  */
-async function tryFallbacks(
+async function tryFallbacksTracked(
   primaryId: string,
   primaryCostRank: number,
   tier: "quality" | "fast",
   params: ChatParams,
   getProvider: (id?: string) => AIProvider,
-): Promise<ResilientChatResult | null> {
+  attempts: AttemptRecord[],
+  inputTokens: number,
+): Promise<FallbackSuccess | null> {
   const available = getAvailableProviders();
   const estimated = estimateRequestTokens(params);
-  const inputTokens = estimateInputTokens(params);
 
   // Filter: not primary, not in cooldown, costRank <= primary's, TPM OK
   const candidates = available
@@ -289,9 +339,6 @@ async function tryFallbacks(
     .sort((a, b) => a.costRank - b.costRank); // cheapest first
 
   if (candidates.length === 0) {
-    console.warn(
-      `[resilience] No fallback candidates (costRank <= ${primaryCostRank}, not in cooldown, TPM OK)`
-    );
     return null;
   }
 
@@ -299,30 +346,24 @@ async function tryFallbacks(
   for (const candidate of candidates.slice(0, 2)) {
     try {
       const fb = getProvider(candidate.id);
-      console.warn(
-        `[resilience] Trying fallback: ${fb.id}/${fb.model} (costRank=${candidate.costRank})`
-      );
-
+      const t = Date.now();
       const fbResult = await tryProvider(fb, params);
+      const d = Date.now() - t;
+
       if (fbResult.ok) {
-        console.info(`[resilience] Fallback ${fb.id} succeeded.`);
+        attempts.push({ provider: fb.id, model: fb.model, status: "ok", durationMs: d });
         recordTokenUsage(fb.id, inputTokens, fbResult.text);
-        return {
-          text: fbResult.text,
-          providerName: fb.name,
-          wasFallback: true,
-          fallbackReason: `${primaryId} indisponível temporariamente`,
-        };
+        return { text: fbResult.text, providerId: fb.id, model: fb.model, providerName: fb.name };
       }
 
       // Fallback also failed — set cooldown on it too
       const fbClassified = classifyProviderError(fbResult.error);
+      attempts.push({ provider: fb.id, model: fb.model, status: "error", error: `${fbClassified.status}`, durationMs: d });
       if (isRetryableStatus(fbClassified.status)) {
         setCooldown(fb.id, fbClassified.status, fbClassified.message);
       }
-      console.warn(`[resilience] Fallback ${fb.id} also failed: ${fbClassified.message}`);
     } catch (fbError) {
-      console.warn(`[resilience] Fallback ${candidate.id} threw: ${(fbError as Error).message}`);
+      attempts.push({ provider: candidate.id, model: "?", status: "error", error: (fbError as Error).message.slice(0, 40), durationMs: 0 });
     }
   }
 

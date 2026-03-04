@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { getSchreibenTaskById } from "@/lib/schreiben-tasks";
-import type { SchreibenResponse } from "@/lib/ai/parsers";
+import type { SchreibenResponse, ProviderMeta } from "@/lib/ai/parsers";
+import { AIProviderTag } from "@/components/AIProviderTag";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -163,6 +164,7 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
   const [text, setText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<SchreibenResponse | null>(null);
+  const [providerMeta, setProviderMeta] = useState<Partial<ProviderMeta> | null>(null);
   const [showCorrected, setShowCorrected] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [timerEnabled, setTimerEnabled] = useState(false);
@@ -215,8 +217,15 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
         return;
       }
 
-      const data: SchreibenResponse = await res.json();
+      const data = await res.json() as SchreibenResponse & Partial<ProviderMeta>;
       setFeedback(data);
+      setProviderMeta({
+        _provider: data._provider,
+        _model: data._model,
+        _wasFallback: data._wasFallback,
+        _fallbackReason: data._fallbackReason,
+        _durationMs: data._durationMs,
+      });
 
       // Persist the submission
       fetch(apiUrl("/api/persist"), {
@@ -274,6 +283,7 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
             <h1 className="text-2xl font-bold">{task.title}</h1>
             <p className="text-sm text-muted-foreground">{task.instruction}</p>
           </div>
+          <AIProviderTag meta={providerMeta} />
           <Button variant="outline" onClick={handleReset}>
             <RotateCcw className="h-4 w-4 mr-2" /> Nova tentativa
           </Button>

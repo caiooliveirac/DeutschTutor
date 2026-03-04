@@ -2,13 +2,14 @@
 
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { Languages, Lightbulb, Search, Loader2, ChevronDown } from "lucide-react";
-import type { ConversationResponse } from "@/lib/ai/parsers";
+import { Languages, Lightbulb, Search, Loader2, ChevronDown, Bot, ArrowRight } from "lucide-react";
+import type { ConversationResponse, ProviderMeta } from "@/lib/ai/parsers";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
   content: string;
   parsed?: ConversationResponse | null;
+  providerMeta?: Partial<ProviderMeta> | null;
   onAnalyze?: () => void;
   isAnalyzing?: boolean;
 }
@@ -48,7 +49,29 @@ function VocabPill({ de, pt, example }: { de: string; pt: string; example: strin
   );
 }
 
-export function ChatMessage({ role, content, parsed, onAnalyze, isAnalyzing }: ChatMessageProps) {
+/** Small inline tag showing which AI provider served the response */
+function ProviderTag({ meta }: { meta: Partial<ProviderMeta> }) {
+  const name = meta._provider || "AI";
+  const duration = meta._durationMs ? `${(meta._durationMs / 1000).toFixed(1)}s` : null;
+
+  return (
+    <div className="flex items-center gap-1.5 mb-2 -mt-0.5">
+      <Bot className="h-3 w-3 text-muted-foreground/60" />
+      <span className="text-[10px] font-medium text-muted-foreground/70">{name}</span>
+      {meta._wasFallback && (
+        <>
+          <ArrowRight className="h-2.5 w-2.5 text-amber-500/70" />
+          <span className="text-[10px] font-medium text-amber-600/70">fallback</span>
+        </>
+      )}
+      {duration && (
+        <span className="text-[10px] text-muted-foreground/40">{duration}</span>
+      )}
+    </div>
+  );
+}
+
+export function ChatMessage({ role, content, parsed, providerMeta, onAnalyze, isAnalyzing }: ChatMessageProps) {
   const [showTranslation, setShowTranslation] = useState(false);
 
   const isUser = role === "user";
@@ -63,6 +86,10 @@ export function ChatMessage({ role, content, parsed, onAnalyze, isAnalyzing }: C
             : "bg-secondary text-secondary-foreground rounded-bl-md"
         )}
       >
+        {/* Provider tag for assistant messages */}
+        {!isUser && providerMeta?._provider && (
+          <ProviderTag meta={providerMeta} />
+        )}
         {/* Message text */}
         <p className="text-sm leading-relaxed whitespace-pre-wrap">
           {isUser ? content : parsed?.response || content}

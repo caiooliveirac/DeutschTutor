@@ -51,23 +51,31 @@ ${userText}
 
 Número de palavras: ${userText.split(/\s+/).filter(Boolean).length}`;
 
-    const { text, providerName } = await chatWithFallback(providerId, "quality", {
+    const result = await chatWithFallback(providerId, "quality", {
       systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
       maxTokens: 6000, // Full evaluation: 4 scores + correctedVersion + feedback + tips + phrases
       temperature: 0.2, // Deterministic scoring — same text should get same scores
     });
 
-    const raw = safeParseJSON<Record<string, unknown>>(text);
+    const meta = {
+      _provider: result.providerName,
+      _model: result.providerModel,
+      _wasFallback: result.wasFallback,
+      _fallbackReason: result.fallbackReason,
+      _durationMs: result.durationMs,
+    };
+
+    const raw = safeParseJSON<Record<string, unknown>>(result.text);
 
     if (raw) {
       const parsed = sanitizeSchreiben(raw);
-      return NextResponse.json({ ...parsed, _provider: providerName });
+      return NextResponse.json({ ...parsed, ...meta });
     }
 
     console.error(
-      `[schreiben] safeParseJSON returned null. Provider: ${providerName}. ` +
-      `Raw (${text.length} chars): ${text.slice(0, 500)}`
+      `[schreiben] safeParseJSON returned null. Provider: ${result.providerName}. ` +
+      `Raw (${result.text.length} chars): ${result.text.slice(0, 500)}`
     );
     return NextResponse.json(
       { error: "Falha ao processar avaliação. Tente novamente." },

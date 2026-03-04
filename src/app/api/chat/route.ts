@@ -48,28 +48,36 @@ export async function POST(request: NextRequest) {
 
     const systemPrompt = getConversationPrompt(scenario, level);
 
-    const { text, providerName } = await chatWithFallback(providerId, "fast", {
+    const result = await chatWithFallback(providerId, "fast", {
       systemPrompt,
       messages: cappedMessages,
       maxTokens: 1500,
       temperature: 0.7, // Natural conversation, some creativity but focused
     });
 
-    const raw = safeParseJSON<Record<string, unknown>>(text);
+    const meta = {
+      _provider: result.providerName,
+      _model: result.providerModel,
+      _wasFallback: result.wasFallback,
+      _fallbackReason: result.fallbackReason,
+      _durationMs: result.durationMs,
+    };
+
+    const raw = safeParseJSON<Record<string, unknown>>(result.text);
 
     if (raw) {
       const parsed = sanitizeConversation(raw);
-      return NextResponse.json({ ...parsed, _provider: providerName });
+      return NextResponse.json({ ...parsed, ...meta });
     }
 
     console.error(
-      `[chat] safeParseJSON returned null. Provider: ${providerName}. ` +
-      `Raw (${text.length} chars): ${text.slice(0, 300)}`
+      `[chat] safeParseJSON returned null. Provider: ${result.providerName}. ` +
+      `Raw (${result.text.length} chars): ${result.text.slice(0, 300)}`
     );
     return NextResponse.json({
       ...getDefaultConversationResponse(),
-      response: text || getDefaultConversationResponse().response,
-      _provider: providerName,
+      response: result.text || getDefaultConversationResponse().response,
+      ...meta,
     });
   } catch (error) {
     console.error("Chat API error:", error);
