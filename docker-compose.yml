@@ -41,6 +41,7 @@ services:
         condition: service_healthy
     environment:
       - NODE_ENV=production
+      - HOSTNAME=0.0.0.0
       - DATABASE_URL=postgresql://deutschtutor:${POSTGRES_PASSWORD:-deutschtutor}@postgres:5432/deutschtutor
       - REDIS_URL=redis://redis:6379
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
