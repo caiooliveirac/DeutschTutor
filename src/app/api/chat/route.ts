@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
       systemPrompt,
       messages: cappedMessages,
       maxTokens: 1500,
+      temperature: 0.7, // Natural conversation, some creativity but focused
     });
 
     const raw = safeParseJSON<Record<string, unknown>>(text);

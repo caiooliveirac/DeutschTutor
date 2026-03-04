@@ -50,7 +50,8 @@ export async function POST(request: NextRequest) {
           content: `Gere 8 exercícios progressivos sobre "${topic.title}". Seed: ${Date.now()}`,
         },
       ],
-      maxTokens: 3500,
+      maxTokens: 4000, // 8 exercises with options, hints, explanations
+      temperature: 0.7, // Varied exercises but grammatically sound
     });
 
     const raw = safeParseJSON<Record<string, unknown>>(text);

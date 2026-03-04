@@ -32,8 +32,8 @@ export interface SchreibenTask {
 //  Every prompt ends with exact JSON schema. "Respond ONLY as valid JSON" is critical.
 //
 //  TIER CONFIG (update routes too):
-//    FAST  → Chat(1500), Vocab(3500), Analyze(3000)
-//    QUALITY → Schreiben(4000), Exercises(3500)
+//    FAST  → Chat(1500, t=0.7), Vocab(3500, t=0.9), Analyze(4500, t=0.3)
+//    QUALITY → Schreiben(6000, t=0.2), Exercises(4000, t=0.7)
 // ════════════════════════════════════════════════════════════════════════════════
 
 
@@ -140,7 +140,7 @@ IMPORTANTE: Para ptToDe e wordFamily, NÃO inclua options nem scrambledWords. Pa
 }
 
 
-// ── Message Analyzer (FAST · max_tokens: 4500) ──
+// ── Message Analyzer (FAST · max_tokens: 4500 · temp: 0.3) ──
 export function getAnalysisPrompt(level: string): string {
   return `Linguista de L2 (PT-BR → alemão). Analise a produção de um médico brasileiro nível ${level}.
 
@@ -160,7 +160,7 @@ Responda APENAS em JSON (sem markdown):
 }
 
 
-// ── Schreiben Evaluator (QUALITY · max_tokens: 6000) ──
+// ── Schreiben Evaluator (QUALITY · max_tokens: 6000 · temp: 0.2) ──
 export function getSchreibenPrompt(level: string): string {
   return `Examinador Goethe-Institut para Schreiben Teil 1, nível ${level}. Aluno: médico brasileiro.
 

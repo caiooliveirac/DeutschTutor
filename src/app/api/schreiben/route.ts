@@ -54,7 +54,8 @@ Número de palavras: ${userText.split(/\s+/).filter(Boolean).length}`;
     const { text, providerName } = await chatWithFallback(providerId, "quality", {
       systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
-      maxTokens: 4000,
+      maxTokens: 6000, // Full evaluation: 4 scores + correctedVersion + feedback + tips + phrases
+      temperature: 0.2, // Deterministic scoring — same text should get same scores
     });
 
     const raw = safeParseJSON<Record<string, unknown>>(text);

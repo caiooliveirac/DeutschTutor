@@ -5,6 +5,7 @@
  * - ```json ... ```
  * - Markdown with JSON embedded
  * - Extra text before/after JSON
+ * - Truncated JSON (max_tokens cut off) — attempts repair by closing brackets
  */
 export function safeParseJSON<T>(text: string): T | null {
   try {
@@ -29,11 +30,73 @@ export function safeParseJSON<T>(text: string): T | null {
       try {
         return JSON.parse(text.slice(start, end + 1)) as T;
       } catch {
+        // Attempt truncated JSON repair:
+        // If the AI ran out of tokens, the JSON is cut mid-stream.
+        // Try to close open brackets/braces to salvage partial data.
+        const partial = text.slice(start, end + 1);
+        const repaired = repairTruncatedJSON(partial);
+        if (repaired) {
+          try {
+            console.warn("[safeParseJSON] Repaired truncated JSON");
+            return JSON.parse(repaired) as T;
+          } catch { /* repair failed */ }
+        }
         return null;
       }
     }
+
+    // No closing brace at all — fully truncated. Try repair from start.
+    if (start !== -1) {
+      const repaired = repairTruncatedJSON(text.slice(start));
+      if (repaired) {
+        try {
+          console.warn("[safeParseJSON] Repaired fully truncated JSON (no closing brace)");
+          return JSON.parse(repaired) as T;
+        } catch { /* repair failed */ }
+      }
+    }
+
     return null;
   }
+}
+
+/**
+ * Attempt to repair truncated JSON by:
+ * 1. Removing trailing incomplete values (strings, numbers mid-token)
+ * 2. Closing any open arrays and objects
+ */
+function repairTruncatedJSON(text: string): string | null {
+  // Remove trailing incomplete string value (open quote without close)
+  let t = text.replace(/,?\s*"[^"]*$/, ""); // remove trailing "incomplete string
+  t = t.replace(/,?\s*"[^"]*":\s*"[^"]*$/, ""); // remove trailing key: "incomplete value
+
+  // Count open vs closed brackets
+  let openBraces = 0;
+  let openBrackets = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (const ch of t) {
+    if (escaped) { escaped = false; continue; }
+    if (ch === "\\") { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "{") openBraces++;
+    if (ch === "}") openBraces--;
+    if (ch === "[") openBrackets++;
+    if (ch === "]") openBrackets--;
+  }
+
+  if (openBraces <= 0 && openBrackets <= 0) return null; // Already balanced or broken
+
+  // Remove trailing comma before closing
+  t = t.replace(/,\s*$/, "");
+
+  // Close open brackets/braces
+  for (let i = 0; i < openBrackets; i++) t += "]";
+  for (let i = 0; i < openBraces; i++) t += "}";
+
+  return t;
 }
 
 // ── Helper: safe array/field access ──

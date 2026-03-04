@@ -32,7 +32,8 @@ export async function analyzeMessage(
           content: `Analise esta mensagem do aluno: "${userMessage}"${contextSummary}`,
         },
       ],
-      maxTokens: 3000,
+      maxTokens: 4500, // Complex nested JSON: corrections[], surgery, vocab, challenge, signals
+      temperature: 0.3, // Deterministic analysis — consistency matters
     });
 
     const raw = safeParseJSON<Record<string, unknown>>(text);
