@@ -70,73 +70,71 @@ export function getVocabPrompt(opts: {
     : "";
 
   const errorsBlock = errorPatterns.length > 0
-    ? `\nERROS FREQUENTES DO ALUNO: ${errorPatterns.join(", ")} — crie pelo menos 1 exercício que trabalhe esses pontos fracos.`
+    ? `\nERROS FREQUENTES DO ALUNO: ${errorPatterns.join("; ")} — adapte exercícios a esses pontos fracos.`
     : "";
 
   return `Treinador de vocabulário alemão nível ${level} para médico brasileiro.
-Objetivo: converter conhecimento PASSIVO em PRODUÇÃO ATIVA com exercícios INTERATIVOS.
+Objetivo: converter conhecimento PASSIVO em PRODUÇÃO ATIVA com exercícios variados e envolventes.
 
 WORTFELD DESTA SESSÃO: ${theme.wortfeld}
 CONTEXTO: ${theme.context}
-PALAVRAS-SEMENTE (use como inspiração, NÃO copie literalmente): ${theme.seedWords.join(", ")}
+PALAVRAS-SEMENTE (inspiração, NÃO copie): ${theme.seedWords.join(", ")}
 ${excludeBlock}${errorsBlock}
 
-SEED DE VARIAÇÃO: ${sessionSeed}
-Use este seed para variar seus exemplos. Cada sessão deve ser ÚNICA.
+SEED: ${sessionSeed}. Use para variar exemplos. Cada sessão ÚNICA.
 
-Crie EXATAMENTE 5 exercícios. TIPOS OBRIGATÓRIOS nesta sessão: ${requiredTypes.join(", ")}. Complete até 5 com tipos livres.
+Crie EXATAMENTE 5 exercícios — UM de cada tipo: ${requiredTypes.join(", ")}
 
-TIPOS DISPONÍVEIS:
-1. ptToDe: frase situacional PT-BR → aluno DIGITA tradução completa em alemão
-   - SEM campo options (o aluno digita)
-   - instruction: "Traduza para alemão"
+═══ TIPOS ═══
 
-2. contextGuess: parágrafo de 2-3 frases em alemão com UMA lacuna (___) → aluno CLICA opção
-   - OBRIGATÓRIO: options com EXATAMENTE 4 alternativas (1 correta + 3 distratores plausíveis)
-   - Distratores devem ser palavras reais do mesmo Wortfeld, mesmo gênero/caso
-   - instruction: "Complete a lacuna"
+1. translate: Frase situacional PT-BR → aluno DIGITA tradução alemã
+   - prompt: frase em português (situacional, 6-12 palavras)
+   - answer: tradução alemã correta
+   - NÃO inclua pairs nem scrambledWords
 
-3. collocation: combinação real alemã → aluno CLICA opção correta
-   - OBRIGATÓRIO: options com EXATAMENTE 4 alternativas (1 correta + 3 distratores)
-   - Prompt: mostre o verbo/nome e peça a preposição/complemento correto
-   - instruction: "Escolha a combinação correta"
+2. cloze: Parágrafo 2-3 frases em alemão com UMA lacuna (___) → aluno DIGITA a palavra
+   - prompt: texto em alemão com exatamente UM "___"
+   - answer: palavra que preenche a lacuna (do Wortfeld)
+   - hint: primeira letra ou classe gramatical
+   - NÃO inclua pairs nem scrambledWords
 
-4. wordFamily: dado um membro da família → aluno DIGITA derivação
-   - SEM campo options (o aluno digita)
-   - instruction: "Derive a palavra da mesma família"
+3. sentenceBuild: Frase alemã desordenada → aluno reordena
+   - prompt: descrição em PT-BR do que a frase deve expressar
+   - answer: frase completa na ordem correta
+   - scrambledWords: TODAS as palavras da answer em ordem ALEATÓRIA (5-8 palavras)
+   - NÃO inclua pairs
 
-5. sentenceBuild: frase em alemão desordenada → aluno CLICA palavras na ordem correta
-   - OBRIGATÓRIO: scrambledWords com 5-8 palavras embaralhadas (inclua TODAS as palavras da resposta)
-   - SEM campo options
-   - A answer deve ser a frase completa na ordem correta
-   - instruction: "Monte a frase na ordem correta"
+4. connect: 4 pares palavra alemã ↔ tradução portuguesa
+   - prompt: "Conecte cada palavra alemã à tradução correta"
+   - pairs: EXATAMENTE 4 objetos {"de":"palavra alemã (com artigo se substantivo)","pt":"tradução PT-BR"}
+   - answer: pares formatados (ex: "die Miete=aluguel, umtauschen=trocar")
+   - Misture classes: substantivos COM artigo, verbos, adjetivos
+   - NÃO inclua scrambledWords
 
-CAMPOS DE CADA EXERCÍCIO:
-- type: um dos 5 tipos acima
-- instruction: instrução curta em PT-BR do que fazer
-- prompt: o enunciado do exercício
-- answer: resposta correta
-- acceptableAnswers: 2-3 variações aceitáveis
-- options: APENAS para contextGuess e collocation (array de 4 strings, ordem aleatória)
-- scrambledWords: APENAS para sentenceBuild (array de strings embaralhadas)
-- hint: dica gramatical ou primeira letra, NUNCA a resposta
-- explanation: explicação em PT-BR de POR QUE a resposta é essa (gramática, uso, contexto)
-- difficulty: 1 (fácil), 2 (médio) ou 3 (difícil)
+5. memoryFlash: Frase alemã para memorizar e reproduzir
+   - prompt: frase COMPLETA em alemão do Wortfeld (frontend mostra 4s, depois esconde)
+   - answer: a MESMA frase exata
+   - Comprimento: A1=4-5 palavras, A2=5-6, B1=6-8, B2=8-10
+   - hint: número de palavras ou primeira palavra
+   - NÃO inclua pairs nem scrambledWords
 
-REGRAS:
-- Todos os exercícios DEVEM estar no Wortfeld "${theme.wortfeld}"
-- Prompts de ptToDe: frases completas e situacionais, NUNCA palavras soltas
-- explanation: SEMPRE explique raciocínio gramatical/semântico, não apenas "a resposta é X"
-- Distratores em options: plausíveis mas claramente incorretos. Evite opções absurdas.
-- Os distratores devem testar CONHECIMENTO REAL (mesma classe gramatical, mesmo campo semântico)
-- Alterne dificuldades (1, 2, 3) entre os exercícios
+═══ CAMPOS OBRIGATÓRIOS ═══
+- type, instruction (PT-BR), prompt, answer, acceptableAnswers (1-3), hint, explanation (PT-BR), difficulty (1-3)
+- scrambledWords: APENAS sentenceBuild
+- pairs: APENAS connect
 
-WORDWEB: escolha UMA palavra central do Wortfeld + 5-6 conexões (sinônimos, antônimos, compostos, colocações, família). Cada conexão com frase-exemplo.
+═══ REGRAS ═══
+- Vocabulário do Wortfeld "${theme.wortfeld}"
+- ALTERNE dificuldades (1, 2, 3)
+- Frases situacionais e naturais, contexto médico quando possível
+- explanation: raciocínio gramatical/semântico, não apenas "a resposta é X"
+- NÃO repita a mesma palavra-chave entre exercícios
+- Adapte ao nível ${level}
+
+WORDWEB: UMA palavra central + 5-6 conexões (sinônimos, antônimos, compostos, colocações). Cada uma com frase-exemplo.
 
 Responda APENAS em JSON (sem markdown, sem \`\`\`):
-{"exercises":[{"type":"tipo","instruction":"instrução PT-BR","prompt":"enunciado","answer":"resposta","acceptableAnswers":["var1","var2"],"options":["a","b","c","d"],"scrambledWords":["word1","word2"],"hint":"dica","explanation":"explicação detalhada PT-BR","difficulty":2}],"wordWeb":{"centerWord":"palavra","related":[{"word":"rel","relation":"tipo","example":"frase completa"}]}}
-
-IMPORTANTE: Para ptToDe e wordFamily, NÃO inclua options nem scrambledWords. Para sentenceBuild, NÃO inclua options. Inclua APENAS os campos pertinentes ao tipo.`;
+{"exercises":[{"type":"translate","instruction":"Traduza para alemão","prompt":"frase PT","answer":"resposta DE","acceptableAnswers":["var"],"hint":"dica","explanation":"explicação","difficulty":2},{"type":"connect","instruction":"Conecte as palavras","prompt":"Conecte cada palavra alemã à tradução correta","answer":"die Miete=aluguel, kündigen=rescindir","acceptableAnswers":[],"pairs":[{"de":"die Miete","pt":"aluguel"},{"de":"kündigen","pt":"rescindir"},{"de":"einziehen","pt":"mudar-se"},{"de":"der Vermieter","pt":"locador"}],"hint":"","explanation":"explicação","difficulty":1}],"wordWeb":{"centerWord":"palavra","related":[{"word":"rel","relation":"tipo","example":"frase"}]}}`;
 }
 
 

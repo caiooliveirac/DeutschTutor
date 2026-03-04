@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: "user",
-          content: `Sessão #${sessionSeed}. Wortfeld: ${theme.wortfeld}. Crie 5 exercícios NOVOS e ÚNICOS de vocabulário com word web. Tipos obrigatórios: ${requiredTypes.join(", ")}.`,
+          content: `Sessão #${sessionSeed}. Wortfeld: ${theme.wortfeld}. Crie 5 exercícios de vocabulário (um de cada tipo) com word web. Tipos: ${requiredTypes.join(", ")}.`,
         },
       ],
       maxTokens: 3500,

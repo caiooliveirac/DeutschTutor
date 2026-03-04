@@ -207,6 +207,7 @@ export interface VocabExercise {
   acceptableAnswers: string[];
   options?: string[];
   scrambledWords?: string[];
+  pairs?: { de: string; pt: string }[];
   hint: string;
   explanation: string;
   difficulty: number;
@@ -375,6 +376,10 @@ export function sanitizeVocab(raw: Record<string, unknown>): VocabResponse {
       const type = str(o.type, "ptToDe");
       const opts = arr(o.options).map((a) => str(a)).filter(Boolean);
       const scrambled = arr(o.scrambledWords).map((a) => str(a)).filter(Boolean);
+      const pairs = arr(o.pairs).map((p) => {
+        const po = rec(p);
+        return { de: str(po.de), pt: str(po.pt) };
+      }).filter((p) => p.de && p.pt);
       return {
         type,
         instruction: str(o.instruction, defaultInstruction(type)),
@@ -383,6 +388,7 @@ export function sanitizeVocab(raw: Record<string, unknown>): VocabResponse {
         acceptableAnswers: arr(o.acceptableAnswers).map((a) => str(a)),
         ...(opts.length > 0 ? { options: opts } : {}),
         ...(scrambled.length > 0 ? { scrambledWords: scrambled } : {}),
+        ...(pairs.length > 0 ? { pairs } : {}),
         hint: str(o.hint, ""),
         explanation: str(o.explanation, ""),
         difficulty: num(o.difficulty, 1),
@@ -400,11 +406,16 @@ export function sanitizeVocab(raw: Record<string, unknown>): VocabResponse {
 
 function defaultInstruction(type: string): string {
   switch (type) {
+    case "translate": return "Traduza para alemão";
+    case "cloze": return "Complete a lacuna";
+    case "sentenceBuild": return "Monte a frase na ordem correta";
+    case "connect": return "Conecte cada palavra à tradução correta";
+    case "memoryFlash": return "Memorize e escreva de memória";
+    // Legacy types
     case "ptToDe": return "Traduza para alemão";
     case "contextGuess": return "Complete a lacuna";
     case "collocation": return "Escolha a combinação correta";
     case "wordFamily": return "Derive a palavra da mesma família";
-    case "sentenceBuild": return "Monte a frase na ordem correta";
     default: return "Resolva o exercício";
   }
 }

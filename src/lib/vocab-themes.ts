@@ -177,32 +177,28 @@ export const VOCAB_THEMES: VocabTheme[] = [
 
 /** Exercise types available for vocab training */
 export const EXERCISE_TYPES = [
-  "ptToDe",
-  "contextGuess",
-  "collocation",
-  "wordFamily",
-  "sentenceBuild",
+  "translate",     // PT→DE sentence translation (typing)
+  "cloze",         // German paragraph with blank (typing)
+  "sentenceBuild", // Scrambled words → build sentence (click chips)
+  "connect",       // Match 4 DE↔PT pairs (click to match)
+  "memoryFlash",   // Memorize sentence briefly, type from memory
 ] as const;
 
 export type ExerciseType = (typeof EXERCISE_TYPES)[number];
 
 /**
  * Pick a random theme, avoiding recently used ones.
- * @param recentThemeIds - IDs of themes used in recent sessions (to avoid repeats)
  */
 export function pickRandomTheme(recentThemeIds: string[] = []): VocabTheme {
-  // Filter out recently used themes
   const available = VOCAB_THEMES.filter((t) => !recentThemeIds.includes(t.id));
   const pool = available.length > 0 ? available : VOCAB_THEMES;
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
 /**
- * Pick a random subset of exercise types, ensuring variety.
- * Always returns 3-4 types to force the AI to mix exercises.
+ * Each session uses all 5 exercise types for maximum variety.
+ * Returns them in random order to vary the session flow.
  */
 export function pickExerciseTypes(): ExerciseType[] {
-  const shuffled = [...EXERCISE_TYPES].sort(() => Math.random() - 0.5);
-  const count = 3 + Math.floor(Math.random() * 2); // 3 or 4
-  return shuffled.slice(0, count);
+  return [...EXERCISE_TYPES].sort(() => Math.random() - 0.5);
 }
