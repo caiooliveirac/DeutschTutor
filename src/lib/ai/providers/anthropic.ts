@@ -23,10 +23,15 @@ export class AnthropicProvider implements AIProvider {
   }
 
   async chat(params: ChatParams): Promise<string> {
+    // Anthropic accepts temperature 0-1 (not 0-2 like OpenAI)
+    const temperature = params.temperature != null
+      ? Math.min(params.temperature, 1)
+      : undefined;
+
     const response = await this.client.messages.create({
       model: this.model,
       max_tokens: params.maxTokens,
-      ...(params.temperature != null ? { temperature: params.temperature } : {}),
+      ...(temperature != null ? { temperature } : {}),
       system: params.systemPrompt,
       messages: params.messages.map((m) => ({
         role: m.role as "user" | "assistant",

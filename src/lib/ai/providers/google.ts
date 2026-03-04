@@ -36,6 +36,11 @@ export class GoogleProvider implements AIProvider {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), GOOGLE_TIMEOUT_MS);
 
+    // Google Gemini accepts temperature 0-2
+    const temperature = params.temperature != null
+      ? Math.min(params.temperature, 2)
+      : undefined;
+
     try {
       const response = await this.client.models.generateContent({
         model: this.model,
@@ -44,7 +49,7 @@ export class GoogleProvider implements AIProvider {
           systemInstruction: params.systemPrompt,
           maxOutputTokens: params.maxTokens,
           abortSignal: controller.signal,
-          ...(params.temperature != null ? { temperature: params.temperature } : {}),
+          ...(temperature != null ? { temperature } : {}),
         },
       });
 

@@ -41,7 +41,7 @@ const PROVIDER_CATALOG: ProviderConfig[] = [
     fastLabel: "GPT-5 Mini",
     envVar: "OPENAI_API_KEY",
     createQuality: () => createOpenAIProvider("gpt-5.2", "GPT-5.2", "premium"),
-    createFast: () => createOpenAIProvider("gpt-5-mini", "GPT-5 Mini", "standard"),
+    createFast: () => createOpenAIProvider("gpt-5-mini", "GPT-5 Mini", "standard", { reasoning: true }),
   },
   {
     id: "google",
@@ -82,7 +82,7 @@ const PROVIDER_CATALOG: ProviderConfig[] = [
     fastModel: "deepseek-chat",
     fastLabel: "DeepSeek V3",
     envVar: "DEEPSEEK_API_KEY",
-    createQuality: () => createDeepSeekProvider("deepseek-reasoner", "DeepSeek R1", "standard"),
+    createQuality: () => createDeepSeekProvider("deepseek-reasoner", "DeepSeek R1", "standard", { reasoning: true }),
     createFast: () => createDeepSeekProvider("deepseek-chat", "DeepSeek V3", "economy"),
   },
 ];
