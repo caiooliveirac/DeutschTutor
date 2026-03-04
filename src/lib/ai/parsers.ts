@@ -175,6 +175,14 @@ export interface AnalysisResponse {
   };
 }
 
+export interface SchreibenCorrection {
+  original: string;
+  corrected: string;
+  explanation: string;
+  category: "grammar" | "vocabulary" | "syntax" | "spelling" | "register";
+  subcategory: string;
+}
+
 export interface SchreibenResponse {
   scores: {
     erfuellung: { score: number; comment: string };
@@ -188,6 +196,7 @@ export interface SchreibenResponse {
   detailedFeedback: string;
   improvementTips: string[];
   modelPhrases: string[];
+  corrections: SchreibenCorrection[];
 }
 
 export interface VocabExercise {
@@ -344,6 +353,16 @@ export function sanitizeSchreiben(raw: Record<string, unknown>): SchreibenRespon
     detailedFeedback: str(raw.detailedFeedback, "Avaliação em andamento."),
     improvementTips: arr(raw.improvementTips).map((t) => str(t)),
     modelPhrases: arr(raw.modelPhrases).map((p) => str(p)),
+    corrections: arr(raw.corrections).map((c) => {
+      const o = rec(c);
+      return {
+        original: str(o.original),
+        corrected: str(o.corrected),
+        explanation: str(o.explanation),
+        category: str(o.category, "grammar") as SchreibenCorrection["category"],
+        subcategory: str(o.subcategory, ""),
+      };
+    }),
   };
 }
 

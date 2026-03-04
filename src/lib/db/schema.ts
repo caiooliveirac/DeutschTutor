@@ -29,6 +29,8 @@ export const errors = sqliteTable("errors", {
   explanation: text("explanation").notNull(),
   category: text("category").notNull(), // 'grammar', 'vocabulary', 'syntax', 'spelling', 'register'
   subcategory: text("subcategory"),
+  grammarTopicId: text("grammar_topic_id"), // maps to GRAMMAR_TOPICS[].id
+  source: text("source"), // 'chat', 'grammatik', 'schreiben', 'wortschatz'
   sourceContext: text("source_context"),
   timesRepeated: integer("times_repeated").default(1),
   resolved: integer("resolved", { mode: "boolean" }).default(false),

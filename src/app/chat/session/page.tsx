@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getScenarioById } from "@/lib/scenarios";
 import type { ConversationResponse, AnalysisResponse, ProviderMeta } from "@/lib/ai/parsers";
+import { inferGrammarTopic } from "@/lib/grammar-topic-map";
 import { Loader2, PanelRightOpen, PanelRightClose, AlertCircle, RotateCcw } from "lucide-react";
 import { useProvider } from "@/components/ProviderContext";
 import { ProviderBadge } from "@/components/ProviderPicker";
@@ -260,6 +261,7 @@ function ChatSessionContent() {
             explanation: c.explanation,
             category: c.category,
             subcategory: c.subcategory,
+            grammarTopicId: inferGrammarTopic(c.category, c.subcategory, c.explanation),
             source: "chat",
           })),
         });

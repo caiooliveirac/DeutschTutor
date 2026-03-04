@@ -174,13 +174,15 @@ totalScore=soma dos 4. passed=totalScore≥12.
 
 VERSÃO CORRIGIDA: Reescreva o texto aplicando todas as correções, mantendo estilo e nível ${level} do aluno. Não eleve para C1.
 
+CORREÇÕES: Liste TODOS os erros individuais encontrados no texto do aluno. Cada correção com trecho original, versão corrigida, explicação da causa raiz em PT-BR, categoria e subcategoria gramatical.
+
 FEEDBACK em PT-BR:
 - detailedFeedback: pontos fortes → problemas principais → caminho de melhoria
 - improvementTips: 3 dicas ACIONÁVEIS e específicas (não "melhore a gramática")
 - modelPhrases: 4-6 frases-template reutilizáveis em DE — tradução PT-BR
 
 Responda APENAS em JSON (sem markdown):
-{"scores":{"erfuellung":{"score":3,"comment":"avaliação PT-BR"},"kohaerenz":{"score":3,"comment":"..."},"wortschatz":{"score":3,"comment":"..."},"strukturen":{"score":3,"comment":"..."}},"totalScore":12,"passed":true,"correctedVersion":"texto corrigido","detailedFeedback":"feedback PT-BR","improvementTips":["dica1","dica2","dica3"],"modelPhrases":["frase DE — tradução PT-BR"]}`;
+{"scores":{"erfuellung":{"score":3,"comment":"avaliação PT-BR"},"kohaerenz":{"score":3,"comment":"..."},"wortschatz":{"score":3,"comment":"..."},"strukturen":{"score":3,"comment":"..."}},"totalScore":12,"passed":true,"correctedVersion":"texto corrigido","detailedFeedback":"feedback PT-BR","improvementTips":["dica1","dica2","dica3"],"modelPhrases":["frase DE — tradução PT-BR"],"corrections":[{"original":"trecho errado","corrected":"trecho corrigido","explanation":"causa raiz PT-BR","category":"grammar","subcategory":"Dativ/Akkusativ"}]}`;
 }
 
 

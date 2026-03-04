@@ -187,6 +187,30 @@ export default function WortschatzPage() {
         }).catch(console.error);
       }
     });
+
+    // Save wrong answers as errors
+    const wrongAnswers = data.exercises
+      .map((ex: VocabExercise, i: number) => ({ ex, result: results[i] }))
+      .filter(({ result }) => result?.revealed && !result.isCorrect);
+
+    if (wrongAnswers.length > 0) {
+      fetch(apiUrl("/api/persist"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "saveErrors",
+          errors: wrongAnswers.map(({ ex, result }) => ({
+            original: result.userAnswer || "(sem resposta)",
+            corrected: ex.answer,
+            explanation: ex.explanation || `Exercício: ${ex.prompt}`,
+            category: "vocabulary",
+            subcategory: ex.type || "",
+            grammarTopicId: null,
+            source: "wortschatz",
+          })),
+        }),
+      }).catch(console.error);
+    }
   }, [allDone, data, results]);
 
   return (

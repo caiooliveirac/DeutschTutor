@@ -1,6 +1,6 @@
 "use client";
 import { apiUrl } from "@/lib/api";
-import { useState, useCallback, useMemo, use } from "react";
+import { useState, useCallback, useMemo, use, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -161,6 +161,33 @@ export default function GrammatikTopicPage({ params }: { params: Promise<{ topic
   const completedCount = results.filter((r) => r.revealed).length;
   const correctCount = results.filter((r) => r.isCorrect).length;
   const allDone = exercises.length > 0 && completedCount === exercises.length;
+
+  // Persist errors for wrong answers when session completes
+  useEffect(() => {
+    if (!allDone || exercises.length === 0) return;
+    const wrongAnswers = exercises
+      .map((ex, i) => ({ ex, result: results[i] }))
+      .filter(({ result }) => result?.revealed && !result.isCorrect);
+
+    if (wrongAnswers.length === 0) return;
+
+    fetch(apiUrl("/api/persist"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "saveErrors",
+        errors: wrongAnswers.map(({ ex, result }) => ({
+          original: result.userAnswer || "(sem resposta)",
+          corrected: ex.answer,
+          explanation: ex.explanation || `Exercício: ${ex.question}`,
+          category: "grammar",
+          subcategory: ex.grammarFocus || topic?.title || "",
+          grammarTopicId: topicId,
+          source: "grammatik",
+        })),
+      }),
+    }).catch(console.error);
+  }, [allDone, exercises, results, topicId, topic?.title]);
 
   if (!topic) {
     return (

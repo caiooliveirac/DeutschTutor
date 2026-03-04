@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getAllErrors,
   getErrorsByCategory,
+  getErrorsByGrammarTopic,
   toggleErrorResolved,
   addToReviewQueue,
   getUnresolvedErrorCount,
@@ -9,15 +10,17 @@ import {
 
 export async function GET() {
   try {
-    const [allErrors, byCategory, unresolvedCount] = await Promise.all([
+    const [allErrors, byCategory, byGrammarTopic, unresolvedCount] = await Promise.all([
       getAllErrors(),
       getErrorsByCategory(),
+      getErrorsByGrammarTopic(),
       getUnresolvedErrorCount(),
     ]);
 
     return NextResponse.json({
       errors: allErrors,
       byCategory,
+      byGrammarTopic,
       unresolvedCount,
       totalCount: allErrors.length,
     });

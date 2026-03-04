@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
         // Accept EITHER:
         //   { corrections: [{ original, corrected, explanation, category }] }  — original design
         //   { errors: [{ original, corrected, explanation, category }] }       — what clients send
-        type ErrorItem = { original: string; corrected: string; explanation: string; category: string; subcategory?: string };
+        type ErrorItem = { original: string; corrected: string; explanation: string; category: string; subcategory?: string; grammarTopicId?: string; source?: string };
         const items: ErrorItem[] = (body.corrections ?? body.errors) as ErrorItem[] ?? [];
 
         if (!Array.isArray(items) || items.length === 0) {
@@ -100,6 +100,8 @@ export async function POST(request: NextRequest) {
             explanation: correction.explanation || "",
             category: correction.category || "other",
             subcategory: correction.subcategory || null,
+            grammarTopicId: correction.grammarTopicId || null,
+            source: correction.source || null,
           });
 
           if (result.length > 0) {

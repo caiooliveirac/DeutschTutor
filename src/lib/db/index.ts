@@ -123,7 +123,19 @@ sqlite.exec(`
   CREATE INDEX IF NOT EXISTS idx_vocab_next_review ON vocabulary(next_review_at);
   CREATE INDEX IF NOT EXISTS idx_errors_resolved ON errors(resolved);
   CREATE INDEX IF NOT EXISTS idx_errors_category ON errors(category);
+  CREATE INDEX IF NOT EXISTS idx_errors_grammar_topic ON errors(grammar_topic_id);
+  CREATE INDEX IF NOT EXISTS idx_errors_source ON errors(source);
   CREATE INDEX IF NOT EXISTS idx_review_due_at ON review_queue(due_at);
   CREATE INDEX IF NOT EXISTS idx_review_type_id ON review_queue(item_type, item_id);
   CREATE INDEX IF NOT EXISTS idx_sessions_created ON sessions(created_at);
 `);
+
+// ── Schema migrations for existing databases ──
+const addColumnIfMissing = (table: string, column: string, type: string) => {
+  const cols = sqlite.pragma(`table_info(${table})`) as { name: string }[];
+  if (!cols.some((c) => c.name === column)) {
+    sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
+};
+addColumnIfMissing("errors", "grammar_topic_id", "TEXT");
+addColumnIfMissing("errors", "source", "TEXT");

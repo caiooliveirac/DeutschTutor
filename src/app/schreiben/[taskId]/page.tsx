@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { getSchreibenTaskById } from "@/lib/schreiben-tasks";
 import type { SchreibenResponse, ProviderMeta } from "@/lib/ai/parsers";
+import { inferGrammarTopic } from "@/lib/grammar-topic-map";
 import { AIProviderTag } from "@/components/AIProviderTag";
 import { cn } from "@/lib/utils";
 import {
@@ -240,6 +241,26 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
           scores: data.scores,
         }),
       }).catch(console.error);
+
+      // Persist individual corrections as errors
+      if (data.corrections?.length) {
+        fetch(apiUrl("/api/persist"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "saveErrors",
+            errors: data.corrections.map((c) => ({
+              original: c.original,
+              corrected: c.corrected,
+              explanation: c.explanation,
+              category: c.category,
+              subcategory: c.subcategory,
+              grammarTopicId: inferGrammarTopic(c.category, c.subcategory, c.explanation),
+              source: "schreiben",
+            })),
+          }),
+        }).catch(console.error);
+      }
     } catch (err) {
       console.error("Submission error:", err);
       setErrorMessage("Falha na conexão. Verifique sua rede e tente novamente.");

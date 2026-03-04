@@ -100,6 +100,22 @@ export async function getErrorsByCategory() {
     .all();
 }
 
+/** Aggregate errors by grammar topic — for Fehlertagebuch dashboard */
+export async function getErrorsByGrammarTopic() {
+  return db
+    .select({
+      grammarTopicId: errors.grammarTopicId,
+      total: sql<number>`count(*)`,
+      unresolved: sql<number>`sum(case when ${errors.resolved} = 0 then 1 else 0 end)`,
+      totalRepeats: sql<number>`sum(${errors.timesRepeated})`,
+      lastSeen: sql<string>`max(${errors.lastSeenAt})`,
+    })
+    .from(errors)
+    .where(sql`${errors.grammarTopicId} IS NOT NULL`)
+    .groupBy(errors.grammarTopicId)
+    .all();
+}
+
 /** Get recent grammar errors as patterns for exercise generation */
 export async function getGrammarErrorPatterns(limit = 10): Promise<string[]> {
   const rows = db
