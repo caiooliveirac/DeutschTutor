@@ -21,6 +21,7 @@ import {
   Brain,
   BookText,
   Clock,
+  AlertCircle,
 } from "lucide-react";
 import { useProvider } from "@/components/ProviderContext";
 import { useLevel } from "@/components/LevelContext";
@@ -50,6 +51,7 @@ export default function WortschatzPage() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [dueCount, setDueCount] = useState(0);
   const [vocabCount, setVocabCount] = useState(0);
   const [recentThemes, setRecentThemes] = useState<string[]>([]);
@@ -69,13 +71,19 @@ export default function WortschatzPage() {
   const loadExercises = useCallback(async () => {
     setLoading(true);
     setSessionStarted(true);
+    setErrorMessage(null);
     try {
       const res = await fetch(apiUrl("/api/vocab"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider: providerId, level, recentThemes }),
       });
-      if (!res.ok) throw new Error("API error");
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null);
+        const msg = errBody?.error || `Erro do servidor (${res.status})`;
+        setErrorMessage(msg);
+        return;
+      }
       const json = await res.json();
       setData(json as VocabResponse);
       setResults((json as VocabResponse).exercises.map(() => ({ userAnswer: "", isCorrect: false, revealed: false })));
@@ -92,6 +100,7 @@ export default function WortschatzPage() {
       }
     } catch (err) {
       console.error("Load exercises error:", err);
+      setErrorMessage("Falha na conexão. Verifique sua rede e tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -245,6 +254,27 @@ export default function WortschatzPage() {
           <CardContent className="p-8 text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary mb-3" />
             <p className="text-sm text-muted-foreground">Gerando exercícios personalizados...</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Error */}
+      {errorMessage && !loading && (
+        <Card className="max-w-lg mx-auto border-red-200">
+          <CardContent className="p-8 text-center space-y-4">
+            <AlertCircle className="h-10 w-10 mx-auto text-red-400" />
+            <p className="text-sm font-medium text-red-700">{errorMessage}</p>
+            <p className="text-xs text-muted-foreground">
+              Tente novamente ou troque o provedor de IA nas configurações.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Button variant="outline" onClick={() => { setSessionStarted(false); setErrorMessage(null); }}>
+                Voltar
+              </Button>
+              <Button onClick={loadExercises}>
+                <RotateCcw className="h-4 w-4 mr-2" /> Tentar novamente
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

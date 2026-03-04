@@ -1,5 +1,5 @@
 export type { AIProvider, ChatParams, ProviderTier, ProviderConfig } from "./types";
-export { classifyProviderError } from "./types";
+export { classifyProviderError, isRetryableStatus } from "./types";
 export { AnthropicProvider } from "./anthropic";
 export { OpenAICompatProvider, createOpenAIProvider, createXAIProvider, createDeepSeekProvider } from "./openai-compat";
 export { GoogleProvider } from "./google";
@@ -11,4 +11,5 @@ export {
   getQualityProvider,
   getFastProvider,
   resolveProviders,
+  getProviderConfig,
 } from "./registry";

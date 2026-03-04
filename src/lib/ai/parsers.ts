@@ -116,11 +116,15 @@ export interface SchreibenResponse {
 
 export interface VocabExercise {
   type: string;
+  instruction: string;
   prompt: string;
   answer: string;
   acceptableAnswers: string[];
+  options?: string[];
+  scrambledWords?: string[];
   hint: string;
   explanation: string;
+  difficulty: number;
 }
 
 export interface VocabResponse {
@@ -149,6 +153,23 @@ export interface GrammatikResponse {
   }[];
   memoryTip: string;
   commonMistakes: string[];
+}
+
+export interface GrammatikExerciseItem {
+  type: string;
+  difficulty: number;
+  instruction: string;
+  question: string;
+  options?: string[];
+  answer: string;
+  acceptableAnswers: string[];
+  hint: string;
+  explanation: string;
+  grammarFocus: string;
+}
+
+export interface GrammatikExercisesResponse {
+  exercises: GrammatikExerciseItem[];
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -256,13 +277,20 @@ export function sanitizeVocab(raw: Record<string, unknown>): VocabResponse {
   return {
     exercises: arr(raw.exercises).map((e) => {
       const o = rec(e);
+      const type = str(o.type, "ptToDe");
+      const opts = arr(o.options).map((a) => str(a)).filter(Boolean);
+      const scrambled = arr(o.scrambledWords).map((a) => str(a)).filter(Boolean);
       return {
-        type: str(o.type, "ptToDe"),
+        type,
+        instruction: str(o.instruction, defaultInstruction(type)),
         prompt: str(o.prompt),
         answer: str(o.answer, "—"),
         acceptableAnswers: arr(o.acceptableAnswers).map((a) => str(a)),
+        ...(opts.length > 0 ? { options: opts } : {}),
+        ...(scrambled.length > 0 ? { scrambledWords: scrambled } : {}),
         hint: str(o.hint, ""),
         explanation: str(o.explanation, ""),
+        difficulty: num(o.difficulty, 1),
       };
     }),
     wordWeb: {
@@ -273,6 +301,17 @@ export function sanitizeVocab(raw: Record<string, unknown>): VocabResponse {
       }),
     },
   };
+}
+
+function defaultInstruction(type: string): string {
+  switch (type) {
+    case "ptToDe": return "Traduza para alemão";
+    case "contextGuess": return "Complete a lacuna";
+    case "collocation": return "Escolha a combinação correta";
+    case "wordFamily": return "Derive a palavra da mesma família";
+    case "sentenceBuild": return "Monte a frase na ordem correta";
+    default: return "Resolva o exercício";
+  }
 }
 
 /** Sanitize a GrammatikResponse — guarantees exercises and arrays */
@@ -294,6 +333,27 @@ export function sanitizeGrammatik(raw: Record<string, unknown>): GrammatikRespon
     }),
     memoryTip: str(raw.memoryTip, ""),
     commonMistakes: arr(raw.commonMistakes).map((m) => str(m)),
+  };
+}
+
+/** Sanitize a GrammatikExercisesResponse — exercises-only (no theory) */
+export function sanitizeGrammatikExercises(raw: Record<string, unknown>): GrammatikExercisesResponse {
+  return {
+    exercises: arr(raw.exercises).map((e) => {
+      const o = rec(e);
+      return {
+        type: str(o.type, "fillBlank"),
+        difficulty: num(o.difficulty, 1),
+        instruction: str(o.instruction),
+        question: str(o.question),
+        options: arr(o.options).length > 0 ? arr(o.options).map((a) => str(a)) : undefined,
+        answer: str(o.answer, "—"),
+        acceptableAnswers: arr(o.acceptableAnswers).map((a) => str(a)),
+        hint: str(o.hint, ""),
+        explanation: str(o.explanation, ""),
+        grammarFocus: str(o.grammarFocus, ""),
+      };
+    }),
   };
 }
 

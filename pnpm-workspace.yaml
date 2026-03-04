@@ -1,5 +1,6 @@
 ignoredBuiltDependencies:
   - better-sqlite3
   - esbuild
+  - protobufjs
   - sharp
   - unrs-resolver

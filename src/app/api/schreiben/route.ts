@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveProviders, classifyProviderError } from "@/lib/ai/providers";
+import { classifyProviderError } from "@/lib/ai/providers";
+import { chatWithFallback } from "@/lib/ai/resilience";
 import { getSchreibenPrompt } from "@/lib/ai/prompts";
 import { safeParseJSON, sanitizeSchreiben } from "@/lib/ai/parsers";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
@@ -34,7 +35,6 @@ export async function POST(request: NextRequest) {
     }
 
     const systemPrompt = getSchreibenPrompt(level);
-    const { quality: provider } = resolveProviders(providerId);
 
     const userPrompt = `Avalie o seguinte texto do aluno para a tarefa de Schreiben:
 
@@ -51,25 +51,25 @@ ${userText}
 
 Número de palavras: ${userText.split(/\s+/).filter(Boolean).length}`;
 
-    const text = await provider.chat({
+    const { text, providerName } = await chatWithFallback(providerId, "quality", {
       systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
-      maxTokens: 6000,
+      maxTokens: 4000,
     });
 
     const raw = safeParseJSON<Record<string, unknown>>(text);
 
     if (raw) {
       const parsed = sanitizeSchreiben(raw);
-      return NextResponse.json({ ...parsed, _provider: provider.name });
+      return NextResponse.json({ ...parsed, _provider: providerName });
     }
 
     console.error(
-      `[schreiben] safeParseJSON returned null. Provider: ${provider.id}/${provider.model}. ` +
+      `[schreiben] safeParseJSON returned null. Provider: ${providerName}. ` +
       `Raw (${text.length} chars): ${text.slice(0, 500)}`
     );
     return NextResponse.json(
-      { error: "Failed to parse evaluation response" },
+      { error: "Falha ao processar avaliação. Tente novamente." },
       { status: 500 }
     );
   } catch (error) {

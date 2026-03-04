@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveProviders, classifyProviderError } from "@/lib/ai/providers";
+import { classifyProviderError } from "@/lib/ai/providers";
+import { chatWithFallback } from "@/lib/ai/resilience";
 import { getConversationPrompt } from "@/lib/ai/prompts";
 import { safeParseJSON, getDefaultConversationResponse, sanitizeConversation } from "@/lib/ai/parsers";
 import { getScenarioById } from "@/lib/scenarios";
@@ -46,9 +47,8 @@ export async function POST(request: NextRequest) {
     }
 
     const systemPrompt = getConversationPrompt(scenario, level);
-    const { fast: provider } = resolveProviders(providerId);
 
-    const text = await provider.chat({
+    const { text, providerName } = await chatWithFallback(providerId, "fast", {
       systemPrompt,
       messages: cappedMessages,
       maxTokens: 1500,
@@ -58,17 +58,17 @@ export async function POST(request: NextRequest) {
 
     if (raw) {
       const parsed = sanitizeConversation(raw);
-      return NextResponse.json({ ...parsed, _provider: provider.name });
+      return NextResponse.json({ ...parsed, _provider: providerName });
     }
 
     console.error(
-      `[chat] safeParseJSON returned null. Provider: ${provider.id}/${provider.model}. ` +
+      `[chat] safeParseJSON returned null. Provider: ${providerName}. ` +
       `Raw (${text.length} chars): ${text.slice(0, 300)}`
     );
     return NextResponse.json({
       ...getDefaultConversationResponse(),
       response: text || getDefaultConversationResponse().response,
-      _provider: provider.name,
+      _provider: providerName,
     });
   } catch (error) {
     console.error("Chat API error:", error);

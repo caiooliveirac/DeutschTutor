@@ -19,6 +19,7 @@ const PROVIDER_CATALOG: ProviderConfig[] = [
     id: "anthropic",
     name: "Anthropic Claude",
     tier: "premium",
+    costRank: 5, // Most expensive (Opus 4.6: $15/$75 per Mtok)
     description: "Opus 4.6 para escrita/gramática, Sonnet 4.6 para chat rápido.",
     qualityModel: "claude-opus-4-6",
     qualityLabel: "Claude Opus 4.6",
@@ -32,6 +33,7 @@ const PROVIDER_CATALOG: ProviderConfig[] = [
     id: "openai",
     name: "OpenAI",
     tier: "premium",
+    costRank: 4, // Expensive (GPT-5.2)
     description: "GPT-5.2 para qualidade máxima, GPT-5 Mini para velocidade.",
     qualityModel: "gpt-5.2",
     qualityLabel: "GPT-5.2",
@@ -45,6 +47,7 @@ const PROVIDER_CATALOG: ProviderConfig[] = [
     id: "google",
     name: "Google Gemini",
     tier: "premium",
+    costRank: 2, // Cheap/free tier generous
     description: "Gemini 3.1 Pro para qualidade, Gemini 3 Flash para velocidade.",
     qualityModel: "gemini-3.1-pro-preview",
     qualityLabel: "Gemini 3.1 Pro",
@@ -58,6 +61,7 @@ const PROVIDER_CATALOG: ProviderConfig[] = [
     id: "xai",
     name: "xAI Grok",
     tier: "standard",
+    costRank: 3, // Mid-range
     description: "Grok 4 para qualidade, Grok 4.1 Fast para respostas rápidas.",
     qualityModel: "grok-4-0709",
     qualityLabel: "Grok 4",
@@ -71,6 +75,7 @@ const PROVIDER_CATALOG: ProviderConfig[] = [
     id: "deepseek",
     name: "DeepSeek",
     tier: "economy",
+    costRank: 1, // Cheapest
     description: "DeepSeek R1 (raciocínio) para qualidade, V3 para velocidade.",
     qualityModel: "deepseek-reasoner",
     qualityLabel: "DeepSeek R1",
@@ -173,4 +178,11 @@ export function resolveProviders(requestedId?: string): { quality: AIProvider; f
     quality: getQualityProvider(id),
     fast: getFastProvider(id),
   };
+}
+
+/**
+ * Get the ProviderConfig for a given provider ID. Returns undefined if not found.
+ */
+export function getProviderConfig(id: string): ProviderConfig | undefined {
+  return PROVIDER_CATALOG.find((p) => p.id === id);
 }

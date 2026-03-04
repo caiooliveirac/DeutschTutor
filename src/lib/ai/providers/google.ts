@@ -5,6 +5,9 @@ import type { AIProvider, ChatParams, ProviderTier } from "./types";
  * Google Gemini provider adapter.
  * Uses the @google/genai SDK (new unified SDK).
  */
+/** Timeout for Google API calls (ms). SDK has no built-in timeout. */
+const GOOGLE_TIMEOUT_MS = 120_000;
+
 export class GoogleProvider implements AIProvider {
   readonly id = "google";
   readonly name: string;
@@ -29,24 +32,40 @@ export class GoogleProvider implements AIProvider {
       parts: [{ text: m.content }],
     }));
 
-    const response = await this.client.models.generateContent({
-      model: this.model,
-      contents,
-      config: {
-        systemInstruction: params.systemPrompt,
-        maxOutputTokens: params.maxTokens,
-        ...(params.temperature != null ? { temperature: params.temperature } : {}),
-      },
-    });
+    // Google SDK has no built-in timeout — enforce via AbortController
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), GOOGLE_TIMEOUT_MS);
 
-    // Check for truncation via finishReason
-    const candidate = response.candidates?.[0];
-    if (candidate?.finishReason === "MAX_TOKENS") {
-      console.warn(
-        `[google] Response truncated (maxOutputTokens=${params.maxTokens}, model=${this.model})`
-      );
+    try {
+      const response = await this.client.models.generateContent({
+        model: this.model,
+        contents,
+        config: {
+          systemInstruction: params.systemPrompt,
+          maxOutputTokens: params.maxTokens,
+          abortSignal: controller.signal,
+          ...(params.temperature != null ? { temperature: params.temperature } : {}),
+        },
+      });
+
+      // Check for truncation via finishReason
+      const candidate = response.candidates?.[0];
+      if (candidate?.finishReason === "MAX_TOKENS") {
+        console.warn(
+          `[google] Response truncated (maxOutputTokens=${params.maxTokens}, model=${this.model})`
+        );
+      }
+
+      return response.text ?? "";
+    } catch (error) {
+      if (controller.signal.aborted) {
+        const timeoutError = new Error(`Timeout after ${GOOGLE_TIMEOUT_MS}ms (google/${this.model})`);
+        (timeoutError as unknown as Record<string, unknown>).code = "ABORT_ERR";
+        throw timeoutError;
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
     }
-
-    return response.text ?? "";
   }
 }

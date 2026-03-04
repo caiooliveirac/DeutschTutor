@@ -1,4 +1,4 @@
-import { resolveProviders } from "./providers";
+import { chatWithFallback } from "./resilience";
 import { getAnalysisPrompt } from "./prompts";
 import { safeParseJSON, getDefaultAnalysis, sanitizeAnalysis, type AnalysisResponse } from "./parsers";
 
@@ -24,9 +24,7 @@ export async function analyzeMessage(
       : "";
 
   try {
-    const { fast: provider } = resolveProviders(providerId);
-
-    const text = await provider.chat({
+    const { text, providerName } = await chatWithFallback(providerId, "fast", {
       systemPrompt,
       messages: [
         {
@@ -34,7 +32,7 @@ export async function analyzeMessage(
           content: `Analise esta mensagem do aluno: "${userMessage}"${contextSummary}`,
         },
       ],
-      maxTokens: 4500,
+      maxTokens: 3000,
     });
 
     const raw = safeParseJSON<Record<string, unknown>>(text);
@@ -45,7 +43,7 @@ export async function analyzeMessage(
 
     // Parse failed — log raw text for debugging (truncate to 500 chars)
     console.error(
-      `[analyze] safeParseJSON returned null. Provider: ${provider.id}/${provider.model}. ` +
+      `[analyze] safeParseJSON returned null. Provider: ${providerName}. ` +
       `Raw text (${text.length} chars): ${text.slice(0, 500)}${text.length > 500 ? '...' : ''}`
     );
     return getDefaultAnalysis(userMessage);

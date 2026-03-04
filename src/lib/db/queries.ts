@@ -100,6 +100,29 @@ export async function getErrorsByCategory() {
     .all();
 }
 
+/** Get recent grammar errors as patterns for exercise generation */
+export async function getGrammarErrorPatterns(limit = 10): Promise<string[]> {
+  const rows = db
+    .select({
+      original: errors.originalText,
+      corrected: errors.correctedText,
+      explanation: errors.explanation,
+      subcategory: errors.subcategory,
+      timesRepeated: errors.timesRepeated,
+    })
+    .from(errors)
+    .where(eq(errors.category, "grammar"))
+    .orderBy(desc(errors.timesRepeated), desc(errors.lastSeenAt))
+    .limit(limit)
+    .all();
+
+  return rows.map((r) => {
+    const sub = r.subcategory ? ` [${r.subcategory}]` : "";
+    const repeated = (r.timesRepeated ?? 1) > 1 ? ` (${r.timesRepeated}x)` : "";
+    return `"${r.original}" → "${r.corrected}"${sub}${repeated}`;
+  });
+}
+
 export async function toggleErrorResolved(id: number, resolved: boolean) {
   return db
     .update(errors)

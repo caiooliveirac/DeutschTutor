@@ -31,9 +31,9 @@ export interface SchreibenTask {
 //  PROMPT DESIGN — Provider-agnostic. Same text for Claude/GPT/Gemini/Grok/DeepSeek.
 //  Every prompt ends with exact JSON schema. "Respond ONLY as valid JSON" is critical.
 //
-//  TIER CONFIG (update client.ts too):
-//    FAST  → Chat(1500), Vocab(3500), Analyze(4500)
-//    QUALITY → Schreiben(6000), Grammatik(6000)
+//  TIER CONFIG (update routes too):
+//    FAST  → Chat(1500), Vocab(3500), Analyze(3000)
+//    QUALITY → Schreiben(4000), Exercises(3500)
 // ════════════════════════════════════════════════════════════════════════════════
 
 
@@ -74,7 +74,7 @@ export function getVocabPrompt(opts: {
     : "";
 
   return `Treinador de vocabulário alemão nível ${level} para médico brasileiro.
-Objetivo: converter conhecimento PASSIVO em PRODUÇÃO ATIVA.
+Objetivo: converter conhecimento PASSIVO em PRODUÇÃO ATIVA com exercícios INTERATIVOS.
 
 WORTFELD DESTA SESSÃO: ${theme.wortfeld}
 CONTEXTO: ${theme.context}
@@ -82,27 +82,61 @@ PALAVRAS-SEMENTE (use como inspiração, NÃO copie literalmente): ${theme.seedW
 ${excludeBlock}${errorsBlock}
 
 SEED DE VARIAÇÃO: ${sessionSeed}
-Use este seed para variar seus exemplos. Cada sessão deve ser ÚNICA — novas frases, novas palavras, novos contextos. NUNCA repita exercícios de sessões anteriores.
+Use este seed para variar seus exemplos. Cada sessão deve ser ÚNICA.
 
 Crie EXATAMENTE 5 exercícios. TIPOS OBRIGATÓRIOS nesta sessão: ${requiredTypes.join(", ")}. Complete até 5 com tipos livres.
-Tipos disponíveis:
-- ptToDe: frase situacional PT-BR → tradução completa em alemão (não palavras isoladas!)
-- contextGuess: parágrafo de 2-3 frases em alemão com UMA lacuna (___) → preencher
-- collocation: palavra alemã → combinações reais (Verb+Präposition, Nomen+Verb)
-- wordFamily: um membro da família → derivar outros (arbeiten→Arbeit→Arbeiter→arbeitstätig)
-- sentenceBuild: 5-7 palavras alemãs desordenadas → montar frase gramaticalmente correta
+
+TIPOS DISPONÍVEIS:
+1. ptToDe: frase situacional PT-BR → aluno DIGITA tradução completa em alemão
+   - SEM campo options (o aluno digita)
+   - instruction: "Traduza para alemão"
+
+2. contextGuess: parágrafo de 2-3 frases em alemão com UMA lacuna (___) → aluno CLICA opção
+   - OBRIGATÓRIO: options com EXATAMENTE 4 alternativas (1 correta + 3 distratores plausíveis)
+   - Distratores devem ser palavras reais do mesmo Wortfeld, mesmo gênero/caso
+   - instruction: "Complete a lacuna"
+
+3. collocation: combinação real alemã → aluno CLICA opção correta
+   - OBRIGATÓRIO: options com EXATAMENTE 4 alternativas (1 correta + 3 distratores)
+   - Prompt: mostre o verbo/nome e peça a preposição/complemento correto
+   - instruction: "Escolha a combinação correta"
+
+4. wordFamily: dado um membro da família → aluno DIGITA derivação
+   - SEM campo options (o aluno digita)
+   - instruction: "Derive a palavra da mesma família"
+
+5. sentenceBuild: frase em alemão desordenada → aluno CLICA palavras na ordem correta
+   - OBRIGATÓRIO: scrambledWords com 5-8 palavras embaralhadas (inclua TODAS as palavras da resposta)
+   - SEM campo options
+   - A answer deve ser a frase completa na ordem correta
+   - instruction: "Monte a frase na ordem correta"
+
+CAMPOS DE CADA EXERCÍCIO:
+- type: um dos 5 tipos acima
+- instruction: instrução curta em PT-BR do que fazer
+- prompt: o enunciado do exercício
+- answer: resposta correta
+- acceptableAnswers: 2-3 variações aceitáveis
+- options: APENAS para contextGuess e collocation (array de 4 strings, ordem aleatória)
+- scrambledWords: APENAS para sentenceBuild (array de strings embaralhadas)
+- hint: dica gramatical ou primeira letra, NUNCA a resposta
+- explanation: explicação em PT-BR de POR QUE a resposta é essa (gramática, uso, contexto)
+- difficulty: 1 (fácil), 2 (médio) ou 3 (difícil)
 
 REGRAS:
 - Todos os exercícios DEVEM estar no Wortfeld "${theme.wortfeld}"
-- Prompts de ptToDe devem ser frases completas e situacionais, NUNCA palavras soltas
-- Explicações em PT-BR, prompts e respostas em alemão
-- acceptableAnswers: inclua 2-3 variações aceitáveis (sinônimos, ordem alternativa)
-- hints: dê dica gramatical ou primeira letra, NUNCA a resposta
+- Prompts de ptToDe: frases completas e situacionais, NUNCA palavras soltas
+- explanation: SEMPRE explique raciocínio gramatical/semântico, não apenas "a resposta é X"
+- Distratores em options: plausíveis mas claramente incorretos. Evite opções absurdas.
+- Os distratores devem testar CONHECIMENTO REAL (mesma classe gramatical, mesmo campo semântico)
+- Alterne dificuldades (1, 2, 3) entre os exercícios
 
 WORDWEB: escolha UMA palavra central do Wortfeld + 5-6 conexões (sinônimos, antônimos, compostos, colocações, família). Cada conexão com frase-exemplo.
 
 Responda APENAS em JSON (sem markdown, sem \`\`\`):
-{"exercises":[{"type":"tipo","prompt":"prompt","answer":"resposta","acceptableAnswers":["var1","var2"],"hint":"dica gramatical","explanation":"explicação PT-BR"}],"wordWeb":{"centerWord":"palavra","related":[{"word":"rel","relation":"tipo","example":"frase completa"}]}}`;
+{"exercises":[{"type":"tipo","instruction":"instrução PT-BR","prompt":"enunciado","answer":"resposta","acceptableAnswers":["var1","var2"],"options":["a","b","c","d"],"scrambledWords":["word1","word2"],"hint":"dica","explanation":"explicação detalhada PT-BR","difficulty":2}],"wordWeb":{"centerWord":"palavra","related":[{"word":"rel","relation":"tipo","example":"frase completa"}]}}
+
+IMPORTANTE: Para ptToDe e wordFamily, NÃO inclua options nem scrambledWords. Para sentenceBuild, NÃO inclua options. Inclua APENAS os campos pertinentes ao tipo.`;
 }
 
 
@@ -150,24 +184,49 @@ Responda APENAS em JSON (sem markdown):
 }
 
 
-// ── Grammar Lesson Generator (QUALITY · max_tokens: 6000) ──
-export function getGrammatikPrompt(topic: GrammarTopic, level: string): string {
-  return `Professor de gramática alemã para falante de PT-BR nível ${level}. Aluno: médico.
+// ── Grammar Exercise Generator (QUALITY · max_tokens: 3500) ──
+// NOTE: Grammar THEORY is now static (src/lib/grammar-lessons.ts).
+//       This prompt generates ONLY exercises, called on-demand per student.
+export function getGrammatikExercisePrompt(
+  topic: GrammarTopic,
+  level: string,
+  errorPatterns: string[],
+): string {
+  const errorsBlock =
+    errorPatterns.length > 0
+      ? `\nERROS RECENTES DESTE ALUNO:\n${errorPatterns.map((e) => `• ${e}`).join("\n")}\nCrie pelo menos 2 exercícios que trabalhem DIRETAMENTE esses pontos fracos.\n`
+      : "";
+
+  return `Gerador de exercícios de gramática alemã nível ${level} para médico brasileiro.
 
 TÓPICO: ${topic.title} — ${topic.description}
 EXEMPLOS: ${topic.examples.join(" | ")}
-DIFICULDADE: ${topic.difficulty}/3 | RELEVÂNCIA GOETHE: ${topic.examRelevance}
+DIFICULDADE DO TÓPICO: ${topic.difficulty}/3
+${errorsBlock}
+Gere EXATAMENTE 8 exercícios progressivos.
 
-AULA EM 4 PARTES:
+TIPOS OBRIGATÓRIOS (use no mínimo 4 tipos diferentes):
+- fillBlank: Frase com UMA lacuna (___) para preencher. Instrução: "Complete com..."  
+- transform: Transformar uma frase (reestruturar, mudar tempo verbal, voz, etc.)
+- errorCorrection: Frase com UM erro gramatical — o aluno identifica e corrige
+- translate: Traduzir frase situacional do PT-BR para alemão
+- reorder: 5-7 palavras desordenadas → montar frase corretamente
+- multipleChoice: Pergunta com 3-4 opções. Forneça em "options"
 
-1. explanation (PT-BR): O que é → Como funciona (regra + exemplos DE com tradução) → Comparação PT-BR vs DE → Quando usar. Se aplicável, inclua tabela de declinação/conjugação em texto.
+REGRAS DE DIFICULDADE:
+- Exercícios 1-3 (difficulty: 1): Aplicação direta da regra, frases curtas e claras
+- Exercícios 4-6 (difficulty: 2): Combinação de regras, frases mais elaboradas
+- Exercícios 7-8 (difficulty: 3): Contexto real médico/hospitalar, múltiplas regras
 
-2. exercises: 5-6 exercícios progressivos (difficulty 1→3, mín. 3 tipos: fillBlank|transform|correct|translate|reorder). Cada um com instruction(PT-BR), question(DE), answer, acceptableAnswers[], hint, explanation. Inclua 1-2 com contexto médico.
+QUALIDADE:
+- Pelo menos 2 exercícios em contexto médico/hospitalar
+- hint: dica gramatical ou a regra relevante (NUNCA a resposta!)
+- acceptableAnswers: 2-3 variações válidas (sinônimos, ordem alternativa)
+- explanation: explique POR QUÊ a resposta está correta, em PT-BR
+- grammarFocus: especifique qual sub-regra está sendo testada
+- NUNCA repita o mesmo padrão de frase em dois exercícios
+- Frases devem ser realistas e naturais, não artificiais
 
-3. memoryTip: Dica mnemônica criativa (acrônimo, rima, associação visual).
-
-4. commonMistakes: 3-4 erros que BRASILEIROS cometem neste tópico (interferência do PT-BR).
-
-Responda APENAS em JSON (sem markdown):
-{"explanation":"explicação completa","exercises":[{"type":"fillBlank","difficulty":1,"instruction":"instrução PT-BR","question":"frase DE","answer":"resposta","acceptableAnswers":["var"],"hint":"dica","explanation":"por quê"}],"memoryTip":"dica mnemônica","commonMistakes":["erro → correto → causa"]}`;
+Responda APENAS em JSON (sem markdown, sem \`\`\`):
+{"exercises":[{"type":"fillBlank","difficulty":1,"instruction":"instrução PT-BR","question":"frase DE com ___","options":["a","b","c"],"answer":"resposta","acceptableAnswers":["var1"],"hint":"dica gramatical","explanation":"explicação PT-BR","grammarFocus":"sub-regra testada"}]}`;
 }

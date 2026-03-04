@@ -7,9 +7,10 @@ import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { AnalysisPanel } from "@/components/chat/AnalysisPanel";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { getScenarioById } from "@/lib/scenarios";
 import type { ConversationResponse, AnalysisResponse } from "@/lib/ai/parsers";
-import { Loader2, PanelRightOpen, PanelRightClose } from "lucide-react";
+import { Loader2, PanelRightOpen, PanelRightClose, AlertCircle, RotateCcw } from "lucide-react";
 import { useProvider } from "@/components/ProviderContext";
 import { ProviderBadge } from "@/components/ProviderPicker";
 import { useLevel } from "@/components/LevelContext";
@@ -21,6 +22,10 @@ interface Message {
   content: string;
   parsed?: ConversationResponse | null;
   analysis?: AnalysisResponse | null;
+  /** If true, this is an error placeholder (not a real AI response) */
+  isError?: boolean;
+  /** Stash the user text so we can retry on error */
+  retryContent?: string;
 }
 
 function ChatSessionContent() {
@@ -34,6 +39,7 @@ function ChatSessionContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null);
   const [activeAnalysis, setActiveAnalysis] = useState<AnalysisResponse | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [showAnalysisPanel, setShowAnalysisPanel] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef<number | null>(null);
@@ -135,7 +141,11 @@ function ChatSessionContent() {
         }),
       });
 
-      if (!response.ok) throw new Error("Chat request failed");
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => null);
+        const errMsg = errBody?.error || `Erro do servidor (${response.status})`;
+        throw new Error(errMsg);
+      }
 
       const parsed = (await response.json()) as ConversationResponse;
 
@@ -167,16 +177,36 @@ function ChatSessionContent() {
       // analyzeUserMessage(userMessage.id, content, apiMessages);
     } catch (error) {
       console.error("Send message error:", error);
+      const displayMsg = error instanceof Error ? error.message : "Erro desconhecido";
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Entschuldigung, es gab einen Fehler. Bitte versuche es nochmal.",
+        content: displayMsg,
         parsed: null,
+        isError: true,
+        retryContent: content,
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  /** Retry a failed message: remove the error placeholder and resend */
+  const retryMessage = (errorMsgId: string, originalContent: string) => {
+    setMessages((prev) => {
+      // Remove error message and the user message that preceded it
+      const errorIdx = prev.findIndex((m) => m.id === errorMsgId);
+      if (errorIdx < 0) return prev;
+      // Also remove the user message right before (if exists)
+      const userIdx = errorIdx - 1;
+      if (userIdx >= 0 && prev[userIdx].role === "user") {
+        return [...prev.slice(0, userIdx), ...prev.slice(errorIdx + 1)];
+      }
+      return [...prev.slice(0, errorIdx), ...prev.slice(errorIdx + 1)];
+    });
+    // Re-send
+    setTimeout(() => sendMessage(originalContent), 100);
   };
 
   const analyzeUserMessage = async (
@@ -185,6 +215,7 @@ function ChatSessionContent() {
     conversationContext: { role: string; content: string }[]
   ) => {
     setIsAnalyzing(messageId);
+    setAnalysisError(null);
 
     try {
       const response = await fetch(apiUrl("/api/analyze"), {
@@ -198,7 +229,13 @@ function ChatSessionContent() {
         }),
       });
 
-      if (!response.ok) throw new Error("Analysis failed");
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => null);
+        const errMsg = errBody?.error || `Erro na análise (${response.status})`;
+        setAnalysisError(errMsg);
+        setShowAnalysisPanel(true);
+        return;
+      }
 
       const analysis = (await response.json()) as AnalysisResponse;
 
@@ -239,9 +276,12 @@ function ChatSessionContent() {
 
       // Auto-show analysis panel on first message
       setActiveAnalysis(analysis);
+      setAnalysisError(null);
       setShowAnalysisPanel(true);
     } catch (error) {
       console.error("Analysis error:", error);
+      setAnalysisError("Falha na conexão com o serviço de análise.");
+      setShowAnalysisPanel(true);
     } finally {
       setIsAnalyzing(null);
     }
@@ -324,20 +364,42 @@ function ChatSessionContent() {
             </div>
           )}
 
-          {messages.map((msg) => (
-            <ChatMessage
-              key={msg.id}
-              role={msg.role}
-              content={msg.content}
-              parsed={msg.parsed}
-              onAnalyze={
-                msg.role === "user"
-                  ? () => handleAnalyzeClick(msg.id, msg.content)
-                  : undefined
-              }
-              isAnalyzing={isAnalyzing === msg.id}
-            />
-          ))}
+          {messages.map((msg) =>
+            msg.isError ? (
+              <div key={msg.id} className="flex justify-start mb-4">
+                <div className="max-w-md rounded-2xl rounded-bl-md border border-red-200 bg-red-50 px-4 py-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-800">{msg.content}</p>
+                  </div>
+                  {msg.retryContent && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => retryMessage(msg.id, msg.retryContent!)}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                      Tentar novamente
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <ChatMessage
+                key={msg.id}
+                role={msg.role}
+                content={msg.content}
+                parsed={msg.parsed}
+                onAnalyze={
+                  msg.role === "user"
+                    ? () => handleAnalyzeClick(msg.id, msg.content)
+                    : undefined
+                }
+                isAnalyzing={isAnalyzing === msg.id}
+              />
+            )
+          )}
 
           {isLoading && (
             <div className="flex justify-start mb-4">
@@ -370,6 +432,24 @@ function ChatSessionContent() {
               analysis={activeAnalysis}
               onClose={() => setShowAnalysisPanel(false)}
             />
+          ) : analysisError ? (
+            <div className="flex flex-col items-center justify-center h-full text-center p-6 gap-3">
+              <AlertCircle className="h-8 w-8 text-red-400" />
+              <p className="text-sm font-medium text-red-600">{analysisError}</p>
+              <p className="text-xs text-muted-foreground">
+                Tente novamente ou troque o provedor de IA.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setAnalysisError(null);
+                  setShowAnalysisPanel(false);
+                }}
+              >
+                Fechar
+              </Button>
+            </div>
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               <div className="text-center p-6">

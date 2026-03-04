@@ -35,7 +35,7 @@ export class OpenAICompatProvider implements AIProvider {
       apiKey: opts.apiKey,
       baseURL: opts.baseURL,
       timeout: opts.timeout ?? 120_000,
-      maxRetries: 2,
+      maxRetries: 0, // resilience.ts handles retries
     });
   }
 

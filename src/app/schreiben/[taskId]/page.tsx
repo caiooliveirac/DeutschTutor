@@ -3,12 +3,13 @@ import { apiUrl } from "@/lib/api";
 
 import { useState, useCallback, useEffect, useRef, use } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { getSchreibenTaskById } from "@/lib/schreiben-tasks";
 import type { SchreibenResponse } from "@/lib/ai/parsers";
+import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
   Send,
@@ -17,37 +18,139 @@ import {
   XCircle,
   Lightbulb,
   Eye,
+  EyeOff,
   Loader2,
   RotateCcw,
   Timer,
   TimerOff,
-  PenLine,
+  AlertCircle,
+  ArrowRight,
+  Award,
+  BookOpen,
+  Sparkles,
+  ChevronDown,
 } from "lucide-react";
 import { useProvider } from "@/components/ProviderContext";
 import { useLevel } from "@/components/LevelContext";
 
-// Score bar component
-function ScoreBar({ label, score, comment }: { label: string; score: number; comment: string }) {
-  const percentage = (score / 5) * 100;
-  const color =
-    score >= 4 ? "bg-green-500" : score >= 3 ? "bg-yellow-500" : score >= 2 ? "bg-orange-500" : "bg-red-500";
+/* ── Score Ring (mini gauge) ── */
+
+function ScoreRing({ score, max = 5, size = 48 }: { score: number; max?: number; size?: number }) {
+  const r = (size - 8) / 2;
+  const circumference = 2 * Math.PI * r;
+  const pct = score / max;
+  const offset = circumference - pct * circumference;
+  const color = pct >= 0.8 ? "#10b981" : pct >= 0.6 ? "#f59e0b" : pct >= 0.4 ? "#f97316" : "#ef4444";
+  const bg = pct >= 0.8 ? "#d1fae5" : pct >= 0.6 ? "#fef3c7" : pct >= 0.4 ? "#ffedd5" : "#fee2e2";
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">{label}</span>
-        <span className="text-sm font-bold">{score}/5</span>
-      </div>
-      <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-700 ease-out ${color}`}
-          style={{ width: `${percentage}%` }}
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg className="-rotate-90" viewBox={`0 0 ${size} ${size}`}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={bg} strokeWidth="5" />
+        <circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="5"
+          strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset}
+          className="transition-all duration-700 ease-out"
         />
-      </div>
-      <p className="text-xs text-muted-foreground">{comment}</p>
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-xs font-bold tabular-nums">
+        {score}
+      </span>
     </div>
   );
 }
+
+/* ── Score Card (replaces ScoreBar) ── */
+
+function ScoreCard({ label, germanLabel, score, comment, delay }: {
+  label: string; germanLabel: string; score: number; comment: string; delay: number;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      className="rounded-xl border bg-card p-4 analysis-section-enter cursor-pointer hover:bg-accent/30 transition-colors"
+      style={{ animationDelay: `${delay}ms` }}
+      onClick={() => setOpen(!open)}
+    >
+      <div className="flex items-center gap-3">
+        <ScoreRing score={score} />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold">{germanLabel}</p>
+          <p className="text-xs text-muted-foreground">{label}</p>
+        </div>
+        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </div>
+      {open && (
+        <p className="text-xs text-muted-foreground leading-relaxed mt-3 pt-3 border-t">
+          {comment}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ── Collapsible Section ── */
+
+function Section({ title, icon, defaultOpen = true, children, delay = 0 }: {
+  title: string; icon: React.ReactNode; defaultOpen?: boolean; children: React.ReactNode; delay?: number;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="rounded-xl border bg-card overflow-hidden analysis-section-enter" style={{ animationDelay: `${delay}ms` }}>
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-2.5 px-5 py-3.5 hover:bg-accent/50 transition-colors cursor-pointer">
+        <span className="text-muted-foreground">{icon}</span>
+        <span className="text-sm font-semibold flex-1 text-left">{title}</span>
+        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+      {open && <div className="px-5 pb-5 pt-1">{children}</div>}
+    </div>
+  );
+}
+
+/* ── Big Total Score ── */
+
+function TotalScoreHero({ score, passed }: { score: number; passed: boolean }) {
+  const r = 54;
+  const circumference = 2 * Math.PI * r;
+  const pct = score / 20;
+  const offset = circumference - pct * circumference;
+  const color = passed ? "#10b981" : "#f97316";
+  const bg = passed ? "#d1fae5" : "#ffedd5";
+
+  return (
+    <div className="flex flex-col items-center gap-4 py-6 analysis-section-enter">
+      <div className="relative h-32 w-32">
+        <svg className="h-full w-full -rotate-90" viewBox="0 0 128 128">
+          <circle cx="64" cy="64" r={r} fill="none" stroke={bg} strokeWidth="10" />
+          <circle
+            cx="64" cy="64" r={r} fill="none" stroke={color} strokeWidth="10"
+            strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset}
+            className="transition-all duration-1000 ease-out quality-gauge-animate"
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-3xl font-bold tabular-nums">{score}</span>
+          <span className="text-xs text-muted-foreground">/20</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        {passed ? (
+          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+        ) : (
+          <XCircle className="h-5 w-5 text-orange-500" />
+        )}
+        <span className={cn("font-bold text-lg", passed ? "text-emerald-600" : "text-orange-600")}>
+          {passed ? "Bestanden!" : "Noch nicht bestanden"}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {passed ? "≥ 12 pontos — aprovado nos critérios Goethe-Institut!" : "< 12 pontos — continue praticando!"}
+      </p>
+    </div>
+  );
+}
+
+/* ── Main Page ── */
 
 export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId: string }> }) {
   const { taskId } = use(params);
@@ -61,8 +164,9 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<SchreibenResponse | null>(null);
   const [showCorrected, setShowCorrected] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [timerEnabled, setTimerEnabled] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(20 * 60); // 20 minutes
+  const [timeLeft, setTimeLeft] = useState(20 * 60);
   const [timerActive, setTimerActive] = useState(false);
 
   const wordCount = text.split(/\s+/).filter(Boolean).length;
@@ -87,6 +191,7 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
     if (!task || wordCount < 10) return;
     setIsSubmitting(true);
     setTimerActive(false);
+    setErrorMessage(null);
 
     try {
       const res = await fetch(apiUrl("/api/schreiben"), {
@@ -103,7 +208,13 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
         }),
       });
 
-      if (!res.ok) throw new Error("API error");
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null);
+        const msg = errBody?.error || `Erro do servidor (${res.status})`;
+        setErrorMessage(msg);
+        return;
+      }
+
       const data: SchreibenResponse = await res.json();
       setFeedback(data);
 
@@ -122,6 +233,7 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
       }).catch(console.error);
     } catch (err) {
       console.error("Submission error:", err);
+      setErrorMessage("Falha na conexão. Verifique sua rede e tente novamente.");
     } finally {
       setIsSubmitting(false);
     }
@@ -131,6 +243,7 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
     setText("");
     setFeedback(null);
     setShowCorrected(false);
+    setErrorMessage(null);
     setTimeLeft(20 * 60);
     setTimerActive(false);
     textareaRef.current?.focus();
@@ -147,8 +260,139 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
     );
   }
 
+  /* ────────────── FEEDBACK VIEW (full-width) ────────────── */
+
+  if (feedback) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-8">
+          <Button variant="ghost" size="icon" onClick={() => router.push("/schreiben")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold">{task.title}</h1>
+            <p className="text-sm text-muted-foreground">{task.instruction}</p>
+          </div>
+          <Button variant="outline" onClick={handleReset}>
+            <RotateCcw className="h-4 w-4 mr-2" /> Nova tentativa
+          </Button>
+        </div>
+
+        {/* Total Score Hero */}
+        <TotalScoreHero score={feedback.totalScore} passed={feedback.passed} />
+
+        {/* Score Breakdown — 2x2 grid */}
+        <div className="grid gap-3 sm:grid-cols-2 mb-6">
+          <ScoreCard
+            germanLabel="Erfüllung"
+            label="Cumprimento da tarefa"
+            score={feedback.scores.erfuellung.score}
+            comment={feedback.scores.erfuellung.comment}
+            delay={100}
+          />
+          <ScoreCard
+            germanLabel="Kohärenz"
+            label="Coerência e coesão"
+            score={feedback.scores.kohaerenz.score}
+            comment={feedback.scores.kohaerenz.comment}
+            delay={180}
+          />
+          <ScoreCard
+            germanLabel="Wortschatz"
+            label="Vocabulário"
+            score={feedback.scores.wortschatz.score}
+            comment={feedback.scores.wortschatz.comment}
+            delay={260}
+          />
+          <ScoreCard
+            germanLabel="Strukturen"
+            label="Estruturas gramaticais"
+            score={feedback.scores.strukturen.score}
+            comment={feedback.scores.strukturen.comment}
+            delay={340}
+          />
+        </div>
+
+        <div className="space-y-4">
+          {/* Detailed Feedback */}
+          <Section title="Feedback Detalhado" icon={<Lightbulb className="h-4 w-4" />} delay={420}>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap">
+              {feedback.detailedFeedback}
+            </p>
+          </Section>
+
+          {/* Corrected Version */}
+          <Section
+            title="Versão Corrigida"
+            icon={showCorrected ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            defaultOpen={false}
+            delay={500}
+          >
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+              <p className="text-sm leading-relaxed whitespace-pre-wrap font-mono text-emerald-900">
+                {feedback.correctedVersion}
+              </p>
+            </div>
+          </Section>
+
+          {/* Your Original Text */}
+          <Section
+            title="Seu Texto Original"
+            icon={<FileText className="h-4 w-4" />}
+            defaultOpen={false}
+            delay={580}
+          >
+            <div className="bg-muted/50 rounded-lg p-4 border">
+              <p className="text-sm leading-relaxed whitespace-pre-wrap font-mono">
+                {text}
+              </p>
+            </div>
+          </Section>
+
+          {/* Tips + Model Phrases side by side on desktop */}
+          {(feedback.improvementTips.length > 0 || feedback.modelPhrases.length > 0) && (
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Tips */}
+              {feedback.improvementTips.length > 0 && (
+                <Section title="Dicas de Melhoria" icon={<Sparkles className="h-4 w-4" />} delay={660}>
+                  <ul className="space-y-2.5">
+                    {feedback.improvementTips.map((tip, i) => (
+                      <li key={i} className="flex items-start gap-2.5 text-sm">
+                        <ArrowRight className="h-3.5 w-3.5 text-primary shrink-0 mt-1" />
+                        <span className="leading-relaxed">{tip}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Section>
+              )}
+
+              {/* Model Phrases */}
+              {feedback.modelPhrases.length > 0 && (
+                <Section title="Frases Modelo" icon={<BookOpen className="h-4 w-4" />} delay={740}>
+                  <div className="space-y-2">
+                    {feedback.modelPhrases.map((phrase, i) => (
+                      <div
+                        key={i}
+                        className="text-sm bg-blue-50 border border-blue-100 p-3 rounded-lg text-blue-900 leading-relaxed"
+                      >
+                        {phrase}
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* ────────────── EDITOR VIEW ────────────── */
+
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-3xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Button variant="ghost" size="icon" onClick={() => router.push("/schreiben")}>
@@ -163,306 +407,138 @@ export default function SchreibenTaskPage({ params }: { params: Promise<{ taskId
         </Badge>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Left: Task + Editor */}
-        <div className="space-y-4">
-          {/* Task Details */}
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-sm font-medium mb-2">Situação:</p>
-              <p className="text-sm text-muted-foreground mb-4">{task.situation}</p>
-              <p className="text-sm font-medium mb-2">Pontos a abordar:</p>
-              <div className="space-y-1.5">
-                {task.points.map((point, i) => (
-                  <div key={i} className="flex items-start gap-2 text-sm">
-                    <span className="font-medium text-primary">{i + 1}.</span>
-                    <span className="text-muted-foreground">{point}</span>
-                  </div>
-                ))}
+      {/* Task Details */}
+      <Card className="mb-5">
+        <CardContent className="p-5">
+          <p className="text-sm font-semibold mb-2 flex items-center gap-2">
+            <Award className="h-4 w-4 text-primary" /> Situação:
+          </p>
+          <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{task.situation}</p>
+          <p className="text-sm font-semibold mb-2">Pontos a abordar:</p>
+          <div className="space-y-1.5">
+            {task.points.map((point, i) => (
+              <div key={i} className="flex items-start gap-2 text-sm">
+                <span className="font-semibold text-primary">{i + 1}.</span>
+                <span className="text-muted-foreground leading-relaxed">{point}</span>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Timer */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setTimerEnabled(!timerEnabled);
-                  if (!timerEnabled) {
-                    setTimeLeft(20 * 60);
-                    setTimerActive(false);
-                  }
-                }}
-                disabled={!!feedback}
-              >
-                {timerEnabled ? <TimerOff className="h-4 w-4 mr-1" /> : <Timer className="h-4 w-4 mr-1" />}
-                {timerEnabled ? "Desativar timer" : "Timer (20 min)"}
-              </Button>
-              {timerEnabled && (
-                <>
-                  <span
-                    className={`font-mono text-lg font-bold ${
-                      timeLeft < 120 ? "text-red-500" : timeLeft < 300 ? "text-yellow-500" : ""
-                    }`}
-                  >
-                    {formatTime(timeLeft)}
-                  </span>
-                  {!timerActive && timeLeft > 0 && !feedback && (
-                    <Button variant="ghost" size="sm" onClick={() => setTimerActive(true)}>
-                      Iniciar
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Word count */}
-            <div className="flex items-center gap-2 text-sm">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              <span
-                className={
-                  wordCount < task.wordCount.min
-                    ? "text-orange-500"
-                    : wordCount > task.wordCount.max
-                    ? "text-red-500"
-                    : "text-green-500"
-                }
-              >
-                {wordCount}
-              </span>
-              <span className="text-muted-foreground">
-                / {task.wordCount.min}–{task.wordCount.max} palavras
-              </span>
-            </div>
+            ))}
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Word count progress */}
-          <Progress
-            value={wordCount}
-            max={task.wordCount.max}
-            className="h-1.5"
-          />
-
-          {/* Writing Area */}
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              if (timerEnabled && !timerActive && e.target.value.length > 0) {
-                setTimerActive(true);
+      {/* Timer + Word count */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setTimerEnabled(!timerEnabled);
+              if (!timerEnabled) {
+                setTimeLeft(20 * 60);
+                setTimerActive(false);
               }
             }}
-            placeholder={
-              task.register === "formal"
-                ? "Sehr geehrte Damen und Herren,\n\nich schreibe Ihnen, weil..."
-                : "Liebe/r ...,\n\nich schreibe dir, weil..."
-            }
-            className="w-full min-h-[350px] p-4 rounded-lg border bg-background text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono"
-            disabled={!!feedback}
-            autoFocus
-          />
-
-          {/* Submit / Reset */}
-          <div className="flex gap-3">
-            {!feedback ? (
-              <Button
-                onClick={handleSubmit}
-                disabled={isSubmitting || wordCount < 10}
-                className="flex-1"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Avaliando...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Enviar para avaliação
-                  </>
-                )}
-              </Button>
-            ) : (
-              <Button variant="outline" onClick={handleReset} className="flex-1">
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Nova tentativa
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Right: Feedback */}
-        <div className="space-y-4">
-          {isSubmitting && (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  Avaliando seu texto com critérios do Goethe-Institut...
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {feedback && (
+          >
+            {timerEnabled ? <TimerOff className="h-4 w-4 mr-1" /> : <Timer className="h-4 w-4 mr-1" />}
+            {timerEnabled ? "Desativar timer" : "Timer (20 min)"}
+          </Button>
+          {timerEnabled && (
             <>
-              {/* Total Score */}
-              <Card className={feedback.passed ? "border-green-500/50" : "border-orange-500/50"}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      {feedback.passed ? (
-                        <CheckCircle2 className="h-6 w-6 text-green-500" />
-                      ) : (
-                        <XCircle className="h-6 w-6 text-orange-500" />
-                      )}
-                      <span className="font-bold text-lg">
-                        {feedback.passed ? "Bestanden!" : "Noch nicht bestanden"}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-3xl font-bold">{feedback.totalScore}</span>
-                      <span className="text-muted-foreground text-sm">/20</span>
-                    </div>
-                  </div>
-                  <Progress value={feedback.totalScore} max={20} />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {feedback.passed ? "≥ 12 pontos — aprovado!" : "< 12 pontos — continue praticando!"}
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Score Breakdown */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Critérios Goethe B1</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <ScoreBar
-                    label="1. Erfüllung (Cumprimento da tarefa)"
-                    score={feedback.scores.erfuellung.score}
-                    comment={feedback.scores.erfuellung.comment}
-                  />
-                  <ScoreBar
-                    label="2. Kohärenz (Coerência)"
-                    score={feedback.scores.kohaerenz.score}
-                    comment={feedback.scores.kohaerenz.comment}
-                  />
-                  <ScoreBar
-                    label="3. Wortschatz (Vocabulário)"
-                    score={feedback.scores.wortschatz.score}
-                    comment={feedback.scores.wortschatz.comment}
-                  />
-                  <ScoreBar
-                    label="4. Strukturen (Estruturas)"
-                    score={feedback.scores.strukturen.score}
-                    comment={feedback.scores.strukturen.comment}
-                  />
-                </CardContent>
-              </Card>
-
-              {/* Detailed Feedback */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Lightbulb className="h-4 w-4" />
-                    Feedback Detalhado
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                    {feedback.detailedFeedback}
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Corrected Version */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Eye className="h-4 w-4" />
-                      Versão Corrigida
-                    </CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowCorrected(!showCorrected)}
-                    >
-                      {showCorrected ? "Ocultar" : "Mostrar"}
-                    </Button>
-                  </div>
-                </CardHeader>
-                {showCorrected && (
-                  <CardContent>
-                    <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-4">
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap font-mono">
-                        {feedback.correctedVersion}
-                      </p>
-                    </div>
-                  </CardContent>
+              <span
+                className={cn(
+                  "font-mono text-lg font-bold",
+                  timeLeft < 120 ? "text-red-500" : timeLeft < 300 ? "text-yellow-500" : ""
                 )}
-              </Card>
-
-              {/* Tips */}
-              {feedback.improvementTips.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Dicas de Melhoria</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2">
-                      {feedback.improvementTips.map((tip, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm">
-                          <span className="text-primary font-bold mt-px">→</span>
-                          <span>{tip}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Model Phrases */}
-              {feedback.modelPhrases.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Frases Modelo</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {feedback.modelPhrases.map((phrase, i) => (
-                        <div
-                          key={i}
-                          className="text-sm bg-primary/5 p-2.5 rounded-lg border border-primary/10"
-                        >
-                          {phrase}
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+              >
+                {formatTime(timeLeft)}
+              </span>
+              {!timerActive && timeLeft > 0 && (
+                <Button variant="ghost" size="sm" onClick={() => setTimerActive(true)}>
+                  Iniciar
+                </Button>
               )}
             </>
           )}
+        </div>
 
-          {!feedback && !isSubmitting && (
-            <Card className="border-dashed">
-              <CardContent className="p-8 text-center">
-                <PenLine className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  Escreva seu texto e clique em &quot;Enviar para avaliação&quot; para receber
-                  feedback detalhado com os critérios oficiais do Goethe-Institut.
-                </p>
-              </CardContent>
-            </Card>
-          )}
+        <div className="flex items-center gap-2 text-sm">
+          <FileText className="h-4 w-4 text-muted-foreground" />
+          <span
+            className={cn(
+              wordCount < task.wordCount.min
+                ? "text-orange-500"
+                : wordCount > task.wordCount.max
+                  ? "text-red-500"
+                  : "text-green-500"
+            )}
+          >
+            {wordCount}
+          </span>
+          <span className="text-muted-foreground">
+            / {task.wordCount.min}–{task.wordCount.max} palavras
+          </span>
         </div>
       </div>
+
+      {/* Word count progress */}
+      <Progress value={wordCount} max={task.wordCount.max} className="h-1.5 mb-4" />
+
+      {/* Writing Area */}
+      <textarea
+        ref={textareaRef}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          if (timerEnabled && !timerActive && e.target.value.length > 0) {
+            setTimerActive(true);
+          }
+        }}
+        placeholder={
+          task.register === "formal"
+            ? "Sehr geehrte Damen und Herren,\n\nich schreibe Ihnen, weil..."
+            : "Liebe/r ...,\n\nich schreibe dir, weil..."
+        }
+        className="w-full min-h-[400px] p-5 rounded-xl border bg-background text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 font-mono mb-4"
+        autoFocus
+      />
+
+      {/* Error Alert */}
+      {errorMessage && (
+        <div className="flex items-start gap-3 p-4 rounded-xl border border-red-200 bg-red-50 mb-4 analysis-section-enter">
+          <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-red-800">{errorMessage}</p>
+            <p className="text-xs text-red-600 mt-1">Tente novamente ou troque o provedor de IA nas configurações.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Submit / Loading */}
+      <Button
+        onClick={handleSubmit}
+        disabled={isSubmitting || wordCount < 10}
+        className="w-full h-12 text-sm"
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Avaliando com critérios Goethe-Institut...
+          </>
+        ) : (
+          <>
+            <Send className="h-4 w-4 mr-2" />
+            Enviar para avaliação
+          </>
+        )}
+      </Button>
+
+      {/* Hint */}
+      {!isSubmitting && wordCount < 10 && (
+        <p className="text-xs text-muted-foreground text-center mt-3">
+          Escreva pelo menos 10 palavras para habilitar o envio
+        </p>
+      )}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
+import { Languages, Lightbulb, Search, Loader2, ChevronDown } from "lucide-react";
 import type { ConversationResponse } from "@/lib/ai/parsers";
 
 interface ChatMessageProps {
@@ -13,13 +13,48 @@ interface ChatMessageProps {
   isAnalyzing?: boolean;
 }
 
+function VocabPill({ de, pt, example }: { de: string; pt: string; example: string }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <button
+      onClick={() => setExpanded(!expanded)}
+      className={cn(
+        "group text-left rounded-lg border transition-all duration-200 cursor-pointer",
+        expanded
+          ? "bg-blue-50 border-blue-200 p-2.5 w-full"
+          : "bg-background/60 border-border/50 hover:border-blue-300 hover:bg-blue-50/50 px-2.5 py-1"
+      )}
+    >
+      <span className="flex items-center gap-1.5">
+        <span className="text-xs font-semibold text-blue-700">{de}</span>
+        <span className="text-[10px] text-muted-foreground">→</span>
+        <span className="text-xs text-muted-foreground">{pt}</span>
+        {example && (
+          <ChevronDown
+            className={cn(
+              "h-3 w-3 text-muted-foreground/50 transition-transform duration-200 ml-auto",
+              expanded && "rotate-180"
+            )}
+          />
+        )}
+      </span>
+      {expanded && example && (
+        <p className="text-[11px] text-blue-600/80 mt-1.5 italic leading-relaxed border-t border-blue-100 pt-1.5">
+          &bdquo;{example}&ldquo;
+        </p>
+      )}
+    </button>
+  );
+}
+
 export function ChatMessage({ role, content, parsed, onAnalyze, isAnalyzing }: ChatMessageProps) {
   const [showTranslation, setShowTranslation] = useState(false);
 
   const isUser = role === "user";
 
   return (
-    <div className={cn("flex gap-3 mb-4", isUser ? "justify-end" : "justify-start")}>
+    <div className={cn("flex gap-3 mb-5", isUser ? "justify-end" : "justify-start")}>
       <div
         className={cn(
           "max-w-[80%] rounded-2xl px-4 py-3",
@@ -33,48 +68,73 @@ export function ChatMessage({ role, content, parsed, onAnalyze, isAnalyzing }: C
           {isUser ? content : parsed?.response || content}
         </p>
 
-        {/* Translation toggle for assistant messages */}
+        {/* Translation toggle */}
         {!isUser && parsed?.translation && (
-          <div className="mt-2">
+          <div className="mt-3 border-t border-border/20 pt-2">
             <button
               onClick={() => setShowTranslation(!showTranslation)}
-              className="text-xs opacity-60 hover:opacity-100 transition-opacity underline cursor-pointer"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             >
+              <Languages className="h-3.5 w-3.5" />
               {showTranslation ? "Ocultar tradução" : "Ver tradução"}
             </button>
             {showTranslation && (
-              <p className="text-xs mt-1 opacity-70 italic">{parsed.translation}</p>
+              <p className="text-xs mt-2 text-muted-foreground italic leading-relaxed pl-5">
+                {parsed.translation}
+              </p>
             )}
           </div>
         )}
 
-        {/* Key vocab chips for assistant messages */}
+        {/* Key vocab — interactive pills */}
         {!isUser && parsed?.keyVocab && parsed.keyVocab.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {parsed.keyVocab.map((v, i) => (
-              <Badge key={i} variant="outline" className="text-[10px] bg-background/50">
-                {v.de} → {v.pt}
-              </Badge>
-            ))}
+          <div className="mt-3 border-t border-border/20 pt-3">
+            <p className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground/70 mb-2">
+              Vocabulário
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {parsed.keyVocab.map((v, i) => (
+                <VocabPill key={i} de={v.de} pt={v.pt} example={v.example} />
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Grammar note for assistant messages */}
+        {/* Grammar note — prominent tip card */}
         {!isUser && parsed?.grammarNote && (
-          <div className="mt-2 p-2 rounded-lg bg-background/30 border border-border/30">
-            <p className="text-[10px] font-medium opacity-70">📝 Gramática</p>
-            <p className="text-xs opacity-80 mt-0.5">{parsed.grammarNote}</p>
+          <div className="mt-3 border-t border-border/20 pt-3">
+            <div className="flex gap-2.5 p-3 rounded-xl bg-amber-50/80 border border-amber-200/60">
+              <Lightbulb className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[10px] font-bold tracking-wider uppercase text-amber-600/80 mb-1">
+                  Dica de Gramática
+                </p>
+                <p className="text-xs leading-relaxed text-amber-900/80">
+                  {parsed.grammarNote}
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Analyze button for user messages */}
+        {/* Analyze button */}
         {isUser && onAnalyze && (
           <button
             onClick={onAnalyze}
             disabled={isAnalyzing}
-            className="mt-2 text-[10px] opacity-60 hover:opacity-100 transition-opacity underline cursor-pointer disabled:opacity-30"
+            className={cn(
+              "mt-2.5 flex items-center gap-1.5 text-[11px] font-medium transition-all cursor-pointer",
+              isAnalyzing
+                ? "opacity-50"
+                : "opacity-60 hover:opacity-100"
+            )}
           >
-            {isAnalyzing ? "Analisando..." : "🔍 Analisar mensagem"}
+            {isAnalyzing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Search className="h-3.5 w-3.5" />
+            )}
+            {isAnalyzing ? "Analisando…" : "Analisar"}
           </button>
         )}
       </div>

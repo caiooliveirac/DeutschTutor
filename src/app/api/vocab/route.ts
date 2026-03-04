@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveProviders, classifyProviderError } from "@/lib/ai/providers";
+import { classifyProviderError } from "@/lib/ai/providers";
+import { chatWithFallback } from "@/lib/ai/resilience";
 import { getVocabPrompt } from "@/lib/ai/prompts";
 import { safeParseJSON, sanitizeVocab } from "@/lib/ai/parsers";
 import { checkRateLimit, AI_RATE_LIMIT } from "@/lib/rate-limit";
@@ -58,9 +59,7 @@ export async function POST(request: NextRequest) {
       sessionSeed,
     });
 
-    const { fast: provider } = resolveProviders(providerId);
-
-    const text = await provider.chat({
+    const { text, providerName } = await chatWithFallback(providerId, "fast", {
       systemPrompt,
       messages: [
         {
@@ -78,17 +77,17 @@ export async function POST(request: NextRequest) {
       const parsed = sanitizeVocab(raw);
       return NextResponse.json({
         ...parsed,
-        _provider: provider.name,
+        _provider: providerName,
         _theme: { id: theme.id, label: theme.label, wortfeld: theme.wortfeld },
       });
     }
 
     console.error(
-      `[vocab] safeParseJSON returned null. Provider: ${provider.id}/${provider.model}. ` +
+      `[vocab] safeParseJSON returned null. Provider: ${providerName}. ` +
       `Raw (${text.length} chars): ${text.slice(0, 500)}`
     );
     return NextResponse.json(
-      { error: "Failed to parse vocab response" },
+      { error: "Falha ao gerar exercícios. Tente novamente." },
       { status: 500 }
     );
   } catch (error) {

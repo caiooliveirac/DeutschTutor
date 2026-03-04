@@ -18,7 +18,7 @@ export class AnthropicProvider implements AIProvider {
     this.client = new Anthropic({
       apiKey,
       timeout: 120_000,
-      maxRetries: 1,
+      maxRetries: 0, // resilience.ts handles retries
     });
   }
 
