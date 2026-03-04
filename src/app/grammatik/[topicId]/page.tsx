@@ -128,12 +128,16 @@ export default function GrammatikTopicPage({ params }: { params: Promise<{ topic
 
   const currentEx = exercises[currentExercise] as GrammatikExerciseItem | undefined;
 
+  /** Normalize for comparison: lowercase, strip trailing punctuation, collapse whitespace */
+  const normalize = (s: string) =>
+    s.trim().toLowerCase().replace(/[.!?,;:]+$/g, "").replace(/\s+/g, " ").trim();
+
   const checkAnswer = () => {
     if (!currentEx) return;
     const answer = currentEx.type === "multipleChoice" ? (selectedOption ?? "") : userInput.trim();
-    const normalizedInput = answer.toLowerCase();
-    const correctAnswer = currentEx.answer.toLowerCase();
-    const acceptables = currentEx.acceptableAnswers.map((a) => a.toLowerCase());
+    const normalizedInput = normalize(answer);
+    const correctAnswer = normalize(currentEx.answer);
+    const acceptables = currentEx.acceptableAnswers.map((a) => normalize(a));
     const isCorrect = normalizedInput === correctAnswer || acceptables.includes(normalizedInput);
 
     setResults((prev) => {

@@ -115,13 +115,17 @@ export default function WortschatzPage() {
     }
   }, [providerId, level, recentThemes]);
 
+  /** Normalize for comparison: lowercase, strip trailing punctuation, collapse whitespace */
+  const normalize = (s: string) =>
+    s.trim().toLowerCase().replace(/[.!?,;:]+$/g, "").replace(/\s+/g, " ").trim();
+
   const checkAnswer = () => {
     if (!data) return;
     const exercise = data.exercises[currentExercise];
     if (!exercise) return;
-    const normalizedInput = userInput.trim().toLowerCase();
-    const correctAnswer = exercise.answer.toLowerCase();
-    const acceptables = exercise.acceptableAnswers.map((a: string) => a.toLowerCase());
+    const normalizedInput = normalize(userInput);
+    const correctAnswer = normalize(exercise.answer);
+    const acceptables = exercise.acceptableAnswers.map((a: string) => normalize(a));
 
     const isCorrect = normalizedInput === correctAnswer || acceptables.includes(normalizedInput);
 
