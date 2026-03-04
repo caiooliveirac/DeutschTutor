@@ -23,7 +23,7 @@ export async function GET() {
         };
 
         if (item.itemType === "vocabulary") {
-          const vocab = db.select().from(vocabulary).where(eq(vocabulary.id, item.itemId)).get();
+          const [vocab] = await db.select().from(vocabulary).where(eq(vocabulary.id, item.itemId)).limit(1);
           if (vocab) {
             content = {
               front: vocab.wordPt,
@@ -32,7 +32,7 @@ export async function GET() {
             };
           }
         } else if (item.itemType === "error") {
-          const err = db.select().from(errors).where(eq(errors.id, item.itemId)).get();
+          const [err] = await db.select().from(errors).where(eq(errors.id, item.itemId)).limit(1);
           if (err) {
             content = {
               front: `Corrija: "${err.originalText}"`,
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Direct lookup instead of fetching all due items
-    const item = db.select().from(reviewQueue).where(eq(reviewQueue.id, itemId)).get();
+    const [item] = await db.select().from(reviewQueue).where(eq(reviewQueue.id, itemId)).limit(1);
 
     if (!item) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });

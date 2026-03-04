@@ -1,14 +1,12 @@
 name: CD (EC2)
 
 on:
-  # Só roda deploy quando o CI passar com sucesso
   workflow_run:
     workflows: ["CI"]
     types: [completed]
     branches: [main]
   workflow_dispatch:
 
-# Evita deploys concorrentes se fizer pushes em sequência
 concurrency:
   group: deutschtutor-prod
   cancel-in-progress: true
@@ -16,7 +14,6 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Só executa se o CI concluiu com sucesso (ou se foi dispatch manual)
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
@@ -32,12 +29,30 @@ jobs:
 
             cd /home/ubuntu/deutschtutor-pro
 
-            # Atualiza código
+            # Update code
             git fetch origin main
             git reset --hard origin/main
 
-            # Rebuild + restart
-            docker compose up -d --build --force-recreate --remove-orphans
+            # Login to GHCR to pull pre-built image
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Limpeza de imagens antigas
+            # Pull the pre-built image
+            docker pull ghcr.io/${{ github.repository }}:latest
+
+            # Tag it so docker compose uses the pre-built image
+            docker tag ghcr.io/${{ github.repository }}:latest deutschtutor-pro-deutschtutor:latest
+
+            # Start/restart with pre-built image (no build)
+            docker compose up -d --no-build --force-recreate --remove-orphans
+
+            # Wait for postgres to be healthy
+            echo "Waiting for PostgreSQL..."
+            for i in $(seq 1 30); do
+              docker compose exec -T postgres pg_isready -U deutschtutor && break || sleep 2
+            done
+
+            # Ensure tables exist (init.sql only runs on first start with empty volume)
+            docker compose exec -T postgres psql -U deutschtutor -d deutschtutor -f /docker-entrypoint-initdb.d/init.sql || true
+
+            # Cleanup
             docker image prune -f

@@ -1,7 +1,8 @@
 /**
- * Simple in-memory rate limiter (token bucket).
- * For single-instance deployments. For multi-instance, use Redis/Upstash.
+ * Rate limiter with Redis backend (falls back to in-memory).
  */
+
+import { redisRateLimit } from "./redis";
 
 interface RateLimitEntry {
   tokens: number;
@@ -20,8 +21,23 @@ interface RateLimitConfig {
 }
 
 /**
- * Check rate limit for a given key (e.g., IP or "global").
- * Returns { allowed, remaining, retryAfterMs }.
+ * Async rate limit — uses Redis sliding window.
+ * Falls back to in-memory if Redis unavailable.
+ */
+export async function checkRateLimitAsync(
+  key: string,
+  config: RateLimitConfig
+): Promise<{ allowed: boolean; remaining: number; retryAfterMs: number }> {
+  try {
+    return await redisRateLimit(key, config.maxTokens, config.refillIntervalMs);
+  } catch {
+    // Fallback to in-memory
+    return checkRateLimit(key, config);
+  }
+}
+
+/**
+ * Sync in-memory rate limit (legacy fallback).
  */
 export function checkRateLimit(
   key: string,
@@ -54,9 +70,9 @@ export function checkRateLimit(
 
 // Preset configs
 export const AI_RATE_LIMIT: RateLimitConfig = {
-  maxTokens: 20,         // 20 requests
-  refillIntervalMs: 60_000, // per minute
-  refillAmount: 5,        // refill 5 per minute
+  maxTokens: 20,
+  refillIntervalMs: 60_000,
+  refillAmount: 5,
 };
 
 export const GENERAL_RATE_LIMIT: RateLimitConfig = {

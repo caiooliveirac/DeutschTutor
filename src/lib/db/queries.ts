@@ -19,12 +19,12 @@ export async function addVocabulary(word: NewVocabulary) {
 }
 
 export async function getVocabularyCount() {
-  const result = db.select({ count: sql<number>`count(*)` }).from(vocabulary).get();
+  const [result] = await db.select({ count: sql<number>`count(*)` }).from(vocabulary);
   return result?.count ?? 0;
 }
 
 export async function getRecentVocabulary(limit = 10) {
-  return db.select().from(vocabulary).orderBy(desc(vocabulary.createdAt)).limit(limit).all();
+  return db.select().from(vocabulary).orderBy(desc(vocabulary.createdAt)).limit(limit);
 }
 
 export async function getDueVocabulary() {
@@ -33,8 +33,7 @@ export async function getDueVocabulary() {
     .select()
     .from(vocabulary)
     .where(lte(vocabulary.nextReviewAt, now))
-    .orderBy(vocabulary.nextReviewAt)
-    .all();
+    .orderBy(vocabulary.nextReviewAt);
 }
 
 export async function updateVocabularyReview(
@@ -54,11 +53,12 @@ export async function updateVocabularyReview(
 }
 
 export async function findVocabularyByWord(wordDe: string) {
-  return db.select().from(vocabulary).where(eq(vocabulary.wordDe, wordDe)).get();
+  const [result] = await db.select().from(vocabulary).where(eq(vocabulary.wordDe, wordDe)).limit(1);
+  return result;
 }
 
 export async function getAllVocabulary() {
-  return db.select().from(vocabulary).orderBy(desc(vocabulary.createdAt)).all();
+  return db.select().from(vocabulary).orderBy(desc(vocabulary.createdAt));
 }
 
 // ── Error Queries ──
@@ -68,25 +68,24 @@ export async function addError(error: NewErrorEntry) {
 }
 
 export async function getRecentErrors(limit = 5) {
-  return db.select().from(errors).orderBy(desc(errors.createdAt)).limit(limit).all();
+  return db.select().from(errors).orderBy(desc(errors.createdAt)).limit(limit);
 }
 
 export async function getErrorCount() {
-  const result = db.select({ count: sql<number>`count(*)` }).from(errors).get();
+  const [result] = await db.select({ count: sql<number>`count(*)` }).from(errors);
   return result?.count ?? 0;
 }
 
 export async function getUnresolvedErrorCount() {
-  const result = db
+  const [result] = await db
     .select({ count: sql<number>`count(*)` })
     .from(errors)
-    .where(eq(errors.resolved, false))
-    .get();
+    .where(eq(errors.resolved, false));
   return result?.count ?? 0;
 }
 
 export async function getAllErrors() {
-  return db.select().from(errors).orderBy(desc(errors.createdAt)).all();
+  return db.select().from(errors).orderBy(desc(errors.createdAt));
 }
 
 export async function getErrorsByCategory() {
@@ -96,8 +95,7 @@ export async function getErrorsByCategory() {
       count: sql<number>`count(*)`,
     })
     .from(errors)
-    .groupBy(errors.category)
-    .all();
+    .groupBy(errors.category);
 }
 
 /** Aggregate errors by grammar topic — for Fehlertagebuch dashboard */
@@ -106,19 +104,18 @@ export async function getErrorsByGrammarTopic() {
     .select({
       grammarTopicId: errors.grammarTopicId,
       total: sql<number>`count(*)`,
-      unresolved: sql<number>`sum(case when ${errors.resolved} = 0 then 1 else 0 end)`,
+      unresolved: sql<number>`sum(case when ${errors.resolved} = false then 1 else 0 end)`,
       totalRepeats: sql<number>`sum(${errors.timesRepeated})`,
       lastSeen: sql<string>`max(${errors.lastSeenAt})`,
     })
     .from(errors)
     .where(sql`${errors.grammarTopicId} IS NOT NULL`)
-    .groupBy(errors.grammarTopicId)
-    .all();
+    .groupBy(errors.grammarTopicId);
 }
 
 /** Get recent grammar errors as patterns for exercise generation */
 export async function getGrammarErrorPatterns(limit = 10): Promise<string[]> {
-  const rows = db
+  const rows = await db
     .select({
       original: errors.originalText,
       corrected: errors.correctedText,
@@ -129,8 +126,7 @@ export async function getGrammarErrorPatterns(limit = 10): Promise<string[]> {
     .from(errors)
     .where(eq(errors.category, "grammar"))
     .orderBy(desc(errors.timesRepeated), desc(errors.lastSeenAt))
-    .limit(limit)
-    .all();
+    .limit(limit);
 
   return rows.map((r) => {
     const sub = r.subcategory ? ` [${r.subcategory}]` : "";
@@ -158,7 +154,8 @@ export async function incrementErrorRepeat(id: number) {
 }
 
 export async function findSimilarError(originalText: string) {
-  return db.select().from(errors).where(eq(errors.originalText, originalText)).get();
+  const [result] = await db.select().from(errors).where(eq(errors.originalText, originalText)).limit(1);
+  return result;
 }
 
 // ── Session Queries ──
@@ -168,7 +165,8 @@ export async function createSession(session: NewSession) {
 }
 
 export async function getSession(id: number) {
-  return db.select().from(sessions).where(eq(sessions.id, id)).get();
+  const [result] = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1);
+  return result;
 }
 
 export async function updateSessionMessages(id: number, messages: string, analysisResults?: string) {
@@ -183,11 +181,11 @@ export async function updateSessionMessages(id: number, messages: string, analys
 }
 
 export async function getRecentSessions(limit = 10) {
-  return db.select().from(sessions).orderBy(desc(sessions.createdAt)).limit(limit).all();
+  return db.select().from(sessions).orderBy(desc(sessions.createdAt)).limit(limit);
 }
 
 export async function getSessionCount() {
-  const result = db.select({ count: sql<number>`count(*)` }).from(sessions).get();
+  const [result] = await db.select({ count: sql<number>`count(*)` }).from(sessions);
   return result?.count ?? 0;
 }
 
@@ -195,25 +193,22 @@ export async function getSessionCount() {
 
 export async function getTodayStats() {
   const today = new Date().toISOString().split("T")[0];
-  let stats = db.select().from(dailyStats).where(eq(dailyStats.date, today)).get();
+  const [existing] = await db.select().from(dailyStats).where(eq(dailyStats.date, today)).limit(1);
 
-  if (!stats) {
-    const result = db
-      .insert(dailyStats)
-      .values({ date: today })
-      .returning()
-      .get();
-    stats = result;
-  }
+  if (existing) return existing;
 
-  return stats;
+  const [created] = await db
+    .insert(dailyStats)
+    .values({ date: today })
+    .returning();
+  return created;
 }
 
 export async function incrementTodayStat(field: "messagesSent" | "vocabLearned" | "errorsMade" | "vocabReviewed" | "errorsResolved" | "minutesStudied") {
   const today = new Date().toISOString().split("T")[0];
 
   // Upsert: insert if not exists, then update atomically (avoids TOCTOU race)
-  db.run(sql`INSERT INTO daily_stats (date) VALUES (${today}) ON CONFLICT(date) DO NOTHING`);
+  await db.execute(sql`INSERT INTO daily_stats (date) VALUES (${today}) ON CONFLICT(date) DO NOTHING`);
 
   // Safe column mapping via switch — no dynamic SQL injection
   switch (field) {
@@ -251,17 +246,15 @@ export async function getStatsForPeriod(days: number) {
     .select()
     .from(dailyStats)
     .where(sql`${dailyStats.date} >= ${cutoffStr}`)
-    .orderBy(asc(dailyStats.date))
-    .all();
+    .orderBy(asc(dailyStats.date));
 }
 
 export async function getStreakDays(): Promise<number> {
-  const stats = db
+  const stats = await db
     .select()
     .from(dailyStats)
     .orderBy(desc(dailyStats.date))
-    .limit(60)
-    .all();
+    .limit(60);
 
   if (stats.length === 0) return 0;
 
@@ -298,14 +291,13 @@ export async function addSchreibenSubmission(submission: {
 }
 
 export async function getSchreibenSubmissions(limit = 10) {
-  return db.select().from(schreibenSubmissions).orderBy(desc(schreibenSubmissions.createdAt)).limit(limit).all();
+  return db.select().from(schreibenSubmissions).orderBy(desc(schreibenSubmissions.createdAt)).limit(limit);
 }
 
 export async function getSchreibenAverageScore() {
-  const result = db
+  const [result] = await db
     .select({ avg: sql<number>`AVG(total_score)` })
-    .from(schreibenSubmissions)
-    .get();
+    .from(schreibenSubmissions);
   return result?.avg ?? 0;
 }
 
@@ -319,11 +311,11 @@ export async function addToReviewQueue(item: {
   stability?: number;
 }) {
   // Check if already in queue
-  const existing = db
+  const [existing] = await db
     .select()
     .from(reviewQueue)
     .where(and(eq(reviewQueue.itemType, item.itemType), eq(reviewQueue.itemId, item.itemId)))
-    .get();
+    .limit(1);
 
   if (existing) return [existing];
 
@@ -346,17 +338,15 @@ export async function getDueReviewItems(limit = 20) {
     .from(reviewQueue)
     .where(lte(reviewQueue.dueAt, now))
     .orderBy(asc(reviewQueue.dueAt))
-    .limit(limit)
-    .all();
+    .limit(limit);
 }
 
 export async function getDueReviewCount() {
   const now = new Date().toISOString();
-  const result = db
+  const [result] = await db
     .select({ count: sql<number>`count(*)` })
     .from(reviewQueue)
-    .where(lte(reviewQueue.dueAt, now))
-    .get();
+    .where(lte(reviewQueue.dueAt, now));
   return result?.count ?? 0;
 }
 
@@ -378,6 +368,6 @@ export async function updateReviewItem(
 }
 
 export async function getReviewQueueCount() {
-  const result = db.select({ count: sql<number>`count(*)` }).from(reviewQueue).get();
+  const [result] = await db.select({ count: sql<number>`count(*)` }).from(reviewQueue);
   return result?.count ?? 0;
 }

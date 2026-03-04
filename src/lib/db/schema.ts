@@ -1,8 +1,8 @@
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { pgTable, serial, text, integer, real, boolean } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
-export const vocabulary = sqliteTable("vocabulary", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const vocabulary = pgTable("vocabulary", {
+  id: serial("id").primaryKey(),
   wordDe: text("word_de").notNull(),
   wordPt: text("word_pt").notNull(),
   exampleSentence: text("example_sentence"),
@@ -18,12 +18,12 @@ export const vocabulary = sqliteTable("vocabulary", {
   easeFactor: real("ease_factor").default(2.5),
   intervalDays: integer("interval_days").default(0),
   nextReviewAt: text("next_review_at"),
-  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
+  createdAt: text("created_at").default(sql`now()`),
+  updatedAt: text("updated_at").default(sql`now()`),
 });
 
-export const errors = sqliteTable("errors", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const errors = pgTable("errors", {
+  id: serial("id").primaryKey(),
   originalText: text("original_text").notNull(),
   correctedText: text("corrected_text").notNull(),
   explanation: text("explanation").notNull(),
@@ -33,13 +33,13 @@ export const errors = sqliteTable("errors", {
   source: text("source"), // 'chat', 'grammatik', 'schreiben', 'wortschatz'
   sourceContext: text("source_context"),
   timesRepeated: integer("times_repeated").default(1),
-  resolved: integer("resolved", { mode: "boolean" }).default(false),
-  lastSeenAt: text("last_seen_at").default(sql`CURRENT_TIMESTAMP`),
-  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+  resolved: boolean("resolved").default(false),
+  lastSeenAt: text("last_seen_at").default(sql`now()`),
+  createdAt: text("created_at").default(sql`now()`),
 });
 
-export const sessions = sqliteTable("sessions", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const sessions = pgTable("sessions", {
+  id: serial("id").primaryKey(),
   scenarioId: text("scenario_id").notNull(),
   scenarioTitle: text("scenario_title").notNull(),
   mode: text("mode").notNull(), // 'conversation', 'schreiben', 'grammatik', 'wortschatz', 'sprechen'
@@ -47,22 +47,22 @@ export const sessions = sqliteTable("sessions", {
   analysisResults: text("analysis_results"), // JSON array
   stats: text("stats"), // JSON object
   durationMinutes: integer("duration_minutes"),
-  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+  createdAt: text("created_at").default(sql`now()`),
 });
 
-export const goals = sqliteTable("goals", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const goals = pgTable("goals", {
+  id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
   category: text("category"),
   targetValue: integer("target_value").default(100),
   currentValue: integer("current_value").default(0),
-  completed: integer("completed", { mode: "boolean" }).default(false),
-  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+  completed: boolean("completed").default(false),
+  createdAt: text("created_at").default(sql`now()`),
 });
 
-export const dailyStats = sqliteTable("daily_stats", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const dailyStats = pgTable("daily_stats", {
+  id: serial("id").primaryKey(),
   date: text("date").notNull().unique(),
   messagesSent: integer("messages_sent").default(0),
   vocabLearned: integer("vocab_learned").default(0),
@@ -74,8 +74,8 @@ export const dailyStats = sqliteTable("daily_stats", {
   streakDays: integer("streak_days").default(0),
 });
 
-export const schreibenSubmissions = sqliteTable("schreiben_submissions", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const schreibenSubmissions = pgTable("schreiben_submissions", {
+  id: serial("id").primaryKey(),
   taskText: text("task_text").notNull(),
   userText: text("user_text").notNull(),
   correctedText: text("corrected_text"),
@@ -83,11 +83,11 @@ export const schreibenSubmissions = sqliteTable("schreiben_submissions", {
   totalScore: integer("total_score"),
   feedback: text("feedback"),
   improvementTips: text("improvement_tips"), // JSON array
-  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+  createdAt: text("created_at").default(sql`now()`),
 });
 
-export const reviewQueue = sqliteTable("review_queue", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const reviewQueue = pgTable("review_queue", {
+  id: serial("id").primaryKey(),
   itemType: text("item_type").notNull(), // 'vocabulary', 'error', 'grammar_rule'
   itemId: integer("item_id").notNull(),
   dueAt: text("due_at").notNull(),
@@ -96,7 +96,7 @@ export const reviewQueue = sqliteTable("review_queue", {
   reps: integer("reps").default(0),
   lapses: integer("lapses").default(0),
   lastReviewAt: text("last_review_at"),
-  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+  createdAt: text("created_at").default(sql`now()`),
 });
 
 // Type exports for convenience

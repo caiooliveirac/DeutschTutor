@@ -19,13 +19,13 @@ export async function GET(req: NextRequest) {
     const data = {
       exportedAt: new Date().toISOString(),
       version: "1.0",
-      vocabulary: db.select().from(vocabulary).all(),
-      errors: db.select().from(errors).all(),
-      sessions: db.select().from(sessions).all(),
-      dailyStats: db.select().from(dailyStats).all(),
-      schreibenSubmissions: db.select().from(schreibenSubmissions).all(),
-      reviewQueue: db.select().from(reviewQueue).all(),
-      goals: db.select().from(goals).all(),
+      vocabulary: await db.select().from(vocabulary),
+      errors: await db.select().from(errors),
+      sessions: await db.select().from(sessions),
+      dailyStats: await db.select().from(dailyStats),
+      schreibenSubmissions: await db.select().from(schreibenSubmissions),
+      reviewQueue: await db.select().from(reviewQueue),
+      goals: await db.select().from(goals),
     };
 
     if (format === "csv") {

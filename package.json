@@ -10,13 +10,13 @@
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
     "@google/genai": "^1.43.0",
     "ai": "^6.0.106",
-    "better-sqlite3": "^12.6.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.1",
@@ -26,11 +26,13 @@
     "openai": "^6.25.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "pg": "^8.13.0",
+    "ioredis": "^5.6.0",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/better-sqlite3": "^7.6.13",
+    "@types/pg": "^8.11.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

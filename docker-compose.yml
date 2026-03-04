@@ -1,4 +1,32 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: deutschtutor-db
+    environment:
+      POSTGRES_DB: deutschtutor
+      POSTGRES_USER: deutschtutor
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-deutschtutor}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deutschtutor"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: deutschtutor-redis
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   deutschtutor:
     build:
       context: .
@@ -6,8 +34,15 @@ services:
       args:
         NEXT_PUBLIC_BASE_PATH: ${NEXT_PUBLIC_BASE_PATH:-/tutor}
     container_name: deutschtutor
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - NODE_ENV=production
+      - DATABASE_URL=postgresql://deutschtutor:${POSTGRES_PASSWORD:-deutschtutor}@postgres:5432/deutschtutor
+      - REDIS_URL=redis://redis:6379
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GOOGLE_AI_KEY=${GOOGLE_AI_KEY:-}
@@ -17,13 +52,15 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - AUTH_USERS=${AUTH_USERS}
       - AUTH_USER=${AUTH_USER:-}
-    volumes:
-      - ./data:/app/data
     ports:
       - "127.0.0.1:8091:3000"
     networks:
+      - default
       - perguntas_default
     restart: unless-stopped
+
+volumes:
+  pgdata:
 
 networks:
   perguntas_default:

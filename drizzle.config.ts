@@ -3,8 +3,8 @@ import { defineConfig } from "drizzle-kit";
 export default defineConfig({
   schema: "./src/lib/db/schema.ts",
   out: "./drizzle/migrations",
-  dialect: "sqlite",
+  dialect: "postgresql",
   dbCredentials: {
-    url: "./data/deutschtutor.db",
+    url: process.env.DATABASE_URL || "postgresql://deutschtutor:deutschtutor@localhost:5432/deutschtutor",
   },
 });

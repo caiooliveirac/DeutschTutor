@@ -6,7 +6,6 @@ const nextConfig: NextConfig = {
   output: "standalone",
   basePath: basePath || undefined,
   reactCompiler: true,
-  serverExternalPackages: ["better-sqlite3"],
   async headers() {
     return [
       {
