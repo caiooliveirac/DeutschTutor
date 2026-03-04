@@ -66,6 +66,17 @@ export async function POST(request: NextRequest) {
 
     if (raw) {
       const parsed = sanitizeGrammatikExercises(raw);
+      // Guard: truncated JSON may parse OK but yield zero exercises
+      if (parsed.exercises.length === 0) {
+        console.warn(
+          `[grammatik/exercises] Parsed OK but 0 exercises. Provider: ${result.providerName}. ` +
+            `Raw (${result.text.length} chars): ${result.text.slice(0, 300)}`,
+        );
+        return NextResponse.json(
+          { error: "A IA gerou resposta incompleta. Tente novamente." },
+          { status: 502 },
+        );
+      }
       return NextResponse.json({ ...parsed, ...meta });
     }
 

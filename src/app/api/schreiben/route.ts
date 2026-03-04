@@ -70,6 +70,17 @@ Número de palavras: ${userText.split(/\s+/).filter(Boolean).length}`;
 
     if (raw) {
       const parsed = sanitizeSchreiben(raw);
+      // Guard: if all scores are 0 and no feedback, the parse likely salvaged garbage
+      if (parsed.totalScore === 0 && !parsed.correctedVersion) {
+        console.warn(
+          `[schreiben] Parsed OK but empty evaluation. Provider: ${result.providerName}. ` +
+          `Raw (${result.text.length} chars): ${result.text.slice(0, 300)}`,
+        );
+        return NextResponse.json(
+          { error: "A IA gerou resposta incompleta. Tente novamente." },
+          { status: 502 },
+        );
+      }
       return NextResponse.json({ ...parsed, ...meta });
     }
 

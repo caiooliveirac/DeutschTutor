@@ -351,7 +351,7 @@ export default function GrammatikTopicPage({ params }: { params: Promise<{ topic
                       i === currentExercise
                         ? "bg-primary"
                         : results[i]?.revealed
-                        ? results[i].isCorrect
+                        ? results[i]?.isCorrect
                           ? "bg-green-500"
                           : "bg-red-400"
                         : "bg-secondary"
@@ -523,7 +523,7 @@ export default function GrammatikTopicPage({ params }: { params: Promise<{ topic
                   <div className="space-y-2 text-left max-w-md mx-auto">
                     {exercises.map((ex, i) => (
                       <div key={i} className="flex items-center gap-3 text-sm">
-                        {results[i].isCorrect ? (
+                        {results[i]?.isCorrect ? (
                           <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
                         ) : (
                           <XCircle className="h-4 w-4 text-red-500 shrink-0" />

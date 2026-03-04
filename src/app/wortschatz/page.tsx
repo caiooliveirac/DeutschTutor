@@ -118,6 +118,7 @@ export default function WortschatzPage() {
   const checkAnswer = () => {
     if (!data) return;
     const exercise = data.exercises[currentExercise];
+    if (!exercise) return;
     const normalizedInput = userInput.trim().toLowerCase();
     const correctAnswer = exercise.answer.toLowerCase();
     const acceptables = exercise.acceptableAnswers.map((a: string) => a.toLowerCase());
@@ -154,7 +155,7 @@ export default function WortschatzPage() {
 
   const completedCount = results.filter((r) => r.revealed).length;
   const correctCount = results.filter((r) => r.isCorrect).length;
-  const allDone = data && completedCount === data.exercises.length;
+  const allDone = data && data.exercises.length > 0 && completedCount === data.exercises.length;
 
   // Persist results when session completes
   useEffect(() => {
@@ -314,7 +315,7 @@ export default function WortschatzPage() {
                       i === currentExercise
                         ? "bg-primary"
                         : results[i]?.revealed
-                        ? results[i].isCorrect
+                        ? results[i]?.isCorrect
                           ? "bg-green-500"
                           : "bg-red-400"
                         : "bg-secondary"
@@ -481,7 +482,7 @@ export default function WortschatzPage() {
                   <div className="space-y-2 text-left max-w-md mx-auto">
                     {data.exercises.map((ex: VocabExercise, i: number) => (
                       <div key={i} className="flex items-center gap-3 text-sm">
-                        {results[i].isCorrect ? (
+                        {results[i]?.isCorrect ? (
                           <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
                         ) : (
                           <XCircle className="h-4 w-4 text-red-500 shrink-0" />

@@ -46,6 +46,7 @@ export class AnthropicProvider implements AIProvider {
       );
     }
 
-    return response.content[0].type === "text" ? response.content[0].text : "";
+    const block = response.content[0];
+    return block?.type === "text" ? block.text : "";
   }
 }
