@@ -6,7 +6,7 @@
 - **AI**: 5 providers — Anthropic (Claude Opus/Sonnet 4.6), OpenAI (GPT-5.2/5-mini), Google (Gemini 3.1 Pro/3 Flash), xAI (Grok 4), DeepSeek (Reasoner/Chat)
 - **Auth**: JWT (jose HS256, 30-day), scrypt passwords, multi-user via `AUTH_USERS` env var
 - **Deploy**: Docker multi-stage on ARM64 (`node:20-alpine`), Nginx reverse proxy at `mnrs.com.br/tutor`
-- **Network**: Container `deutschtutor` → port `127.0.0.1:8091:3000` → Nginx (`repo-nginx-1`) → Cloudflare
+- **Network**: Container `deutschtutor` → port `127.0.0.1:8091:3000` → Nginx host (`nginx.service`) → Cloudflare
 
 ## Completed (2026-03-03)
 

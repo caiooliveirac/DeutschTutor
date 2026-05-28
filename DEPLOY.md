@@ -173,7 +173,7 @@ usar apenas 2 estágios (builder → runner) para evitar inconsistências entre 
 ## Arquitetura no Servidor
 
 ```
-Internet → Cloudflare → EC2:443 → nginx (container repo-nginx-1)
+Internet → Cloudflare → EC2:443 → nginx (host systemd)
                                       ├── /tutor  → deutschtutor:3000 (com auth)
                                       ├── /alemao → deutschbruecke:3000
                                       ├── /manual → web:8000
@@ -183,7 +183,7 @@ Internet → Cloudflare → EC2:443 → nginx (container repo-nginx-1)
 
 O nginx é configurado pelo arquivo:
 ```
-~/samu-normas/repo/nginx/default.conf
+/etc/nginx/sites-enabled/mnrs-host-gateway.conf
 ```
 
 O docker-compose principal do ecossistema está em:
@@ -305,14 +305,16 @@ curl -s http://127.0.0.1:8091/tutor/login | head -20
 
 Editar o arquivo:
 ```
-~/samu-normas/repo/nginx/default.conf
+/etc/nginx/conf.d/mnrs-host-upstreams.conf
+e
+/etc/nginx/sites-enabled/mnrs-host-gateway.conf
 ```
 
 #### 7a. Adicionar o upstream (junto com os outros upstreams):
 
 ```nginx
 upstream app_tutor {
-    server deutschtutor:3000;
+  server 127.0.0.1:8091;
     keepalive 32;
 }
 ```
@@ -354,19 +356,18 @@ upstream app_tutor {
 
 > **Por que NÃO rewrite?** O Next.js com `basePath: "/tutor"` já espera receber as requests com `/tutor/...` no path. Não fazer rewrite — apenas proxy direto. Isso é diferente de apps sem basePath nativo.
 
-#### 7c. Adicionar a rede no nginx service (se necessário)
+#### 7c. Contrato de upstream
 
-O container `deutschtutor` usa a rede `perguntas_default`. O nginx já está nessa rede (verificar no `docker-compose.prod.yml`). Se NÃO estiver, adicionar.
+Priorizar upstream host-bound (`127.0.0.1:porta`) para reduzir acoplamento com DNS de container.
 
 ### 8. Reload do Nginx
 
 ```bash
-cd ~/samu-normas/repo
-docker compose -f docker-compose.prod.yml exec nginx nginx -t
-docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
+sudo nginx -t
+sudo systemctl reload nginx
 ```
 
-Se `nginx -t` der erro, corrigir o `default.conf` antes de recarregar.
+Se `nginx -t` der erro, corrigir os arquivos em `/etc/nginx/` antes de recarregar.
 
 ### 9. Testar a URL pública
 
@@ -488,9 +489,10 @@ export const config = {
 
 ### Nginx não resolve o upstream
 
-O nginx precisa estar na mesma rede Docker. Verificar:
+Validar sintaxe e rota no gateway host:
 ```bash
-docker inspect repo-nginx-1 --format '{{json .NetworkSettings.Networks}}' | python3 -m json.tool
+sudo nginx -t
+curl -sk -o /dev/null -w '%{http_code}' 'https://127.0.0.1/tutor' -H 'Host: mnrs.com.br'
 ```
 
 ### API retorna 402 / credit balance
@@ -516,8 +518,8 @@ docker compose -f ~/samu-normas/repo/docker-compose.prod.yml exec nginx tail -f 
 | Rebuild app | `cd ~/deutschtutor-pro && docker compose build --no-cache && docker compose up -d` |
 | Ver logs | `docker logs deutschtutor --tail 50 -f` |
 | Restart app | `cd ~/deutschtutor-pro && docker compose restart` |
-| Reload nginx | `cd ~/samu-normas/repo && docker compose -f docker-compose.prod.yml exec nginx nginx -s reload` |
-| Test nginx config | `cd ~/samu-normas/repo && docker compose -f docker-compose.prod.yml exec nginx nginx -t` |
+| Reload nginx | `sudo systemctl reload nginx` |
+| Test nginx config | `sudo nginx -t` |
 | Check status | `docker ps \| grep deutschtutor` |
 | Shell no container | `docker exec -it deutschtutor sh` |
 | Ver DB | `docker exec -it deutschtutor ls -la /app/data/` |
@@ -548,8 +550,9 @@ docker compose -f ~/samu-normas/repo/docker-compose.prod.yml exec nginx tail -f 
 │   └── middleware.ts                  ← Route protection
 └── ...
 
-~/samu-normas/repo/nginx/
-└── default.conf                       ← Nginx config (upstream + location blocks)
+/etc/nginx/
+├── conf.d/mnrs-host-upstreams.conf    ← upstreams do gateway host
+└── sites-enabled/mnrs-host-gateway.conf ← rotas publicas e proxy_pass
 ```
 
 ---
@@ -557,14 +560,14 @@ docker compose -f ~/samu-normas/repo/docker-compose.prod.yml exec nginx tail -f 
 ## Notas para o Agente
 
 1. **NÃO altere** o `docker-compose.prod.yml` principal em `~/samu-normas/repo/` — o DeutschTutor tem seu próprio compose isolado.
-2. **O nginx** precisa fazer proxy para `deutschtutor:3000` pelo nome do container na rede `perguntas_default`.
+2. **O nginx** do host deve rotear para upstream estável (preferencialmente host-bound `127.0.0.1:porta`).
 3. **O basePath** `/tutor` é definido no build do Next.js (variável `NEXT_PUBLIC_BASE_PATH`). Mudar após o build requer rebuild.
 4. **Não faça rewrite** no nginx para `/tutor` — o Next.js já lida com o prefixo via `basePath`.
 5. **O `.env`** no servidor NÃO deve ser comitado. O `.gitignore` já ignora `.env*`.
 6. **O SQLite** fica em `./data/` que é montado como volume. Está no `.gitignore`.
 7. **Cloudflare** não precisa de configuração adicional — o wildcard `mnrs.com.br/*` já está configurado.
 8. **A porta 8091** foi escolhida para ser a porta local (não conflita com nenhum outro serviço).
-9. **O container name `deutschtutor`** é o hostname DNS dentro da rede Docker — é isso que o nginx usa como upstream.
+9. **Se usar upstream por nome de container**, tratar como legado/fallback e validar sempre após reload.
 10. **Qualquer `fetch()` novo** no frontend DEVE usar `apiUrl()` de `@/lib/api` — caso contrário, o basePath não é aplicado e a chamada falha silenciosamente.
 11. **Modelos Anthropic** deprecam frequentemente. Se APIs começarem a dar 404, verificar e atualizar `MODEL`/`MODEL_FAST` em `src/lib/ai/client.ts`.
 12. **Qualquer env var usada em runtime** que seja importada no escopo do módulo precisa ter fallback vazio ou inicialização lazy — senão o build do Next.js falha.

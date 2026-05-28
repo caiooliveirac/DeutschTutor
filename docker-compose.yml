@@ -1,20 +1,6 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: deutschtutor-db
-    environment:
-      POSTGRES_DB: deutschtutor
-      POSTGRES_USER: deutschtutor
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-deutschtutor}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U deutschtutor"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    restart: unless-stopped
+  # ── Banco de dados — migrado para PG nativo do host ──
+  # Container postgres removido — app conecta via host.docker.internal:5432
 
   redis:
     image: redis:7-alpine
@@ -35,14 +21,14 @@ services:
         NEXT_PUBLIC_BASE_PATH: ${NEXT_PUBLIC_BASE_PATH:-/tutor}
     container_name: deutschtutor
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - NODE_ENV=production
       - HOSTNAME=0.0.0.0
-      - DATABASE_URL=postgresql://deutschtutor:${POSTGRES_PASSWORD:-deutschtutor}@postgres:5432/deutschtutor
+      - DATABASE_URL=postgresql://deutschtutor:${POSTGRES_PASSWORD}@${DB_HOST:-host.docker.internal}:5432/deutschtutor
       - REDIS_URL=redis://redis:6379
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
@@ -59,9 +45,6 @@ services:
       - default
       - perguntas_default
     restart: unless-stopped
-
-volumes:
-  pgdata:
 
 networks:
   perguntas_default:
